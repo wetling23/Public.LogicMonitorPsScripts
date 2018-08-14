@@ -1,3 +1,13 @@
+<#
+    .DESCRIPTION 
+        Retrieves the out-of-band management IP (IPMI, iLO, iDRAC) from vSphere hosts.
+    .NOTES
+        Author: Daniel Bapple with modification by Mike Hashemi
+        V1.0.0.0 date: 14 August 2018
+            - Initial release.
+    .LINK
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/DataSourceScripts/vSphere_IPMI_IP_Address.ps1
+#>
 $esxuser = '##ESX.USER##'
 $esxpass = '##ESX.PASS##'
 $hostname = '##HOSTNAME##'
