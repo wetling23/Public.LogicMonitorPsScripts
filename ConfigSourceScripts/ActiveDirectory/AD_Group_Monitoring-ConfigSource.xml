@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<feed  version="1.0" hasPendingRequests="false" >
+  <company></company>
+  <status>200</status>
+  <errmsg>OK</errmsg>
+  <interval>0</interval>
+    <entry type="predatasource">
+        <version>1528316431</version>
+        <name>AD Group Monitoring</name>
+        <displayedas>AD Group Monitoring</displayedas>
+        <description></description>
+        <collector>script</collector>
+        <hasMultiInstances>true</hasMultiInstances>
+        <schedule>3600</schedule>
+        <appliesTo>hasCategory(&#34;MicrosoftDomainController&#34;) &#38;&#38; custom.MonitoredGroups</appliesTo>
+        <wildcardauto>true</wildcardauto>
+        <wildcardpersist>true</wildcardpersist>
+        <wildcardlinuxscript>ad_script</wildcardlinuxscript>
+        <wildcardlinuxcmdline>type=&#34;powerShell&#34; </wildcardlinuxcmdline>
+        <wildcardwinscript>ad_script</wildcardwinscript>
+        <wildcardwincmdline>type=&#34;powerShell&#34; </wildcardwincmdline>
+        <wildcardgroovyscript>$username = &#34;##wmi.user##&#34;
+$password = &#34;##wmi.pass##&#34;
+$domainCred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, ($password | ConvertTo-SecureString -AsPlainText -Force)
+$server = &#34;##system.hostname##&#34;
+$adGroups = &#34;##custom.MonitoredGroups##&#34;
+[array]$adGroups = $adGroups.Split(&#34;,&#34;)
+$i = 0
+
+If ($adGroups -contains &#34;All&#34;) {
+    $ADGroups = Get-ADGroup -Filter * -Server $server -Credential $domainCred | Select-Object -ExpandProperty Name
+}
+ElseIf ($adGroups.Count -gt 0) {
+    Foreach ($ADGroup in $ADGroups) {
+        write-host  $i&#34;##&#34; $ADGroup
+        $i = $i + 1
+    }
+}
+</wildcardgroovyscript>
+        <wildcardschedule>0</wildcardschedule>
+        <wildcarddisable>false</wildcarddisable>
+        <wildcarddeleteinactive>true</wildcarddeleteinactive>
+        <agdmethod>none</agdmethod>
+        <agdparams></agdparams>
+        <group></group>
+        <tags></tags>
+        <technology></technology>
+        <adlist><![CDATA[{"agdmethod":"none","method":"ad_script","agdparams":"","id":0,"filters":[],"params":{"type":"powerShell","groovyscript":"$username = \"##wmi.user##\"\r\n$password = \"##wmi.pass##\"\r\n$domainCred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, ($password | ConvertTo-SecureString -AsPlainText -Force)\r\n$server = \"##system.hostname##\"\r\n$adGroups = \"##custom.MonitoredGroups##\"\r\n[array]$adGroups = $adGroups.Split(\",\")\r\n$i = 0\r\n\r\nIf ($adGroups -contains \"All\") {\r\n    $ADGroups = Get-ADGroup -Filter * -Server $server -Credential $domainCred | Select-Object -ExpandProperty Name\r\n}\r\nElseIf ($adGroups.Count -gt 0) {\r\n    Foreach ($ADGroup in $ADGroups) {\r\n        write-host  $i\"##\" $ADGroup\r\n        $i = $i + 1\r\n    }\r\n}\r\n"}}]]></adlist>
+        <schemaVersion>2</schemaVersion>
+        <dataSourceType>2</dataSourceType>
+        <attributes>
+        <attribute>
+            <name>scripttype</name>
+            <value>powerShell</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>scriptgroovy</name>
+            <value>Function Get-UsersInGroup {
+    &#60;#
+    .DESCRIPTION
+        Takes an Active Directory group name and returns the members, searching recursively. If a domain controller name, FQDN, or IP are provided, they will be used. Same with a credential for the provided DC. 
+    .NOTES
+        V1.0.0.0 date: 4 June 2018
+            - Based on a post at the &#34;AD Groups&#34; ConfigSource by Daniel Bapple.
+    .PARAMETER Group
+        Represents the group, for which the function will query membership.
+    .PARAMETER DomainController
+        Represents the IP, FQDN, or resolvable NetBios name of a domain controller in the target domain.
+    .PARAMETER Credential
+        Represents a credential, which the function can use to authenticate to $DomainController.
+    #&#62;
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $True)]
+        [string]$Group,
+
+        [Parameter(Mandatory = $True)]
+        [string]$DomainController,
+
+        [Parameter(Mandatory = $True)]
+        [System.Management.Automation.PSCredential]$Credential
+    )
+
+    Try {
+        # Checking if we can detect a problem with Get-ADGroupMember before trying to use it recusively.
+        $null = Get-ADGroupMember $Group -Server $DomainController -Credential $Credential -ErrorAction Stop
+        $queryType = &#34;AdGroupMember&#34;
+    }
+    Catch [Microsoft.ActiveDirectory.Management.ADException] {
+        $queryType = &#34;AdGroup&#34;
+    }
+
+    Switch ($queryType) {
+        AdGroupMember {
+            Foreach ($object in (Get-ADGroupMember $Group -Server $DomainController -Credential $Credential)) {
+                If ($object.objectClass -eq &#34;group&#34;) {
+                    Get-UsersInGroup -Group $object.Name -DomainController $DomainController -Credential $Credential
+                } 
+                Else {
+                    $object.distinguishedName
+                }
+            }
+        }
+        AdGroup {
+            [array]$object = (Get-ADGroup $Group -server $domainController -Credential $domainCred -Properties members).members
+
+            $object
+        }
+    }
+}
+
+$username = &#34;##wmi.user##&#34;
+$password = &#34;##wmi.pass##&#34;
+$domainCred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, ($password | ConvertTo-SecureString -AsPlainText -Force)
+$server = &#34;##system.hostname##&#34;
+$group = &#34;##wildalias##&#34;
+
+Get-UsersInGroup -Group $group -DomainController $server -Credential $domainCred</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>windowsscript</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>linuxscript</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>windowscmdline</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>linuxcmdline</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>csfileformat</name>
+            <value>arbitrary</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>cstimestampformat</name>
+            <value>yyyy-MM-dd hh:mm:ss z</value>
+            <comment></comment>
+        </attribute>
+        </attributes>
+        <datapoints>
+        <datapoint>
+            <name>membershipChange</name>
+            <dataType>1</dataType>
+            <type>2</type>
+            <postprocessormethod>none</postprocessormethod>
+            <postprocessorparam>{&#34;format&#34;:&#34;arbitrary&#34;,&#34;diff_check&#34;:{}}</postprocessorparam>
+            <usevalue></usevalue>
+            <alertexpr>= 1 1</alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody></alertbody>
+            <description>Group membership change, please assign ticket to Sith queue.</description>
+            <maxvalue>1</maxvalue>
+            <minvalue>0</minvalue>
+            <userparam1>ignore</userparam1>
+            <userparam2>false</userparam2>
+            <userparam3>0</userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        <datapoint>
+            <name>retrievalFailure</name>
+            <dataType>1</dataType>
+            <type>2</type>
+            <postprocessormethod>none</postprocessormethod>
+            <postprocessorparam>{&#34;fetch_check&#34;:{},&#34;format&#34;:&#34;arbitrary&#34;}</postprocessorparam>
+            <usevalue></usevalue>
+            <alertexpr>= 1 1</alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody></alertbody>
+            <description>Group membership change, please assign ticket to Sith queue.</description>
+            <maxvalue>1</maxvalue>
+            <minvalue>0</minvalue>
+            <userparam1>fetch</userparam1>
+            <userparam2>false</userparam2>
+            <userparam3>0</userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        </datapoints>
+        <graphs>
+        </graphs>
+        <overviewgraphs>
+        </overviewgraphs>
+        <scripts>
+        </scripts>
+    </entry>
+</feed>

@@ -1,0 +1,45 @@
+{
+    "auditVersion": 0,
+    "scheduleOption": 0,
+    "name": "addCategory_MicrosoftDomainController",
+    "description": "Tests for the presence of the Active Directory Domain Services (NTDS) service (in a running state) and adds appropriate system category to the host.\n\nUsed by the AD Group Monitoring (https://synoptek.logicmonitor.com/santaba/uiv3/setting/index.jsp#configsources/12931213) ConfigSource.",
+    "appliesTo": "isWindows()",
+    "id": 17,
+    "technology": "",
+    "type": "propertyrule",
+    "params": [
+        {
+            "name": "scripttype",
+            "comment": "embed",
+            "value": "embed"
+        },
+        {
+            "name": "scriptgroovy",
+            "comment": "",
+            "value": "import com.santaba.agent.groovyapi.win32.WMI\nimport com.santaba.agent.groovyapi.win32.WMISession\n\n// Set hostname\ndef hostname = hostProps.get('system.hostname');\n\n// Form the full query.\ndef wmiQuery = \"Select name,state from Win32_Service Where Name = 'NTDS'\";\n\ntry\n{\n    // using default namespace\n    def session = WMI.open(hostname); \n    def result = session.queryFirst(\"CIMv2\", wmiQuery, 10); \n\n    // Did we get anything?\n    if (result.STATE == \"Running\")\n    {\n        // Yes, apply the properties\n        println 'system.categories=MicrosoftDomainController'\n    }\n}\n\ncatch(Exception e)\n{\n    println e\n    return 1;\n}\n\n// Exit by returning 0.\nreturn 0;"
+        },
+        {
+            "name": "windowsscript",
+            "comment": "",
+            "value": ""
+        },
+        {
+            "name": "linuxscript",
+            "comment": "",
+            "value": ""
+        },
+        {
+            "name": "windowscmdline",
+            "comment": "",
+            "value": ""
+        },
+        {
+            "name": "linuxcmdline",
+            "comment": "",
+            "value": ""
+        }
+    ],
+    "version": 1528303060,
+    "group": "Windows",
+    "tags": "active directory,microsoft,windows"
+}
