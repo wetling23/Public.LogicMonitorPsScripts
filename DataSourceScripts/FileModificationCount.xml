@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<feed  version="1.0" hasPendingRequests="false" >
+  <company></company>
+  <status>200</status>
+  <errmsg>OK</errmsg>
+  <interval>0</interval>
+    <entry type="predatasource">
+        <version>1539197558</version>
+        <name>FileModificationCount</name>
+        <displayedas>Modified File Count</displayedas>
+        <description>Returns the number of modified files since the last query.</description>
+        <collector>script</collector>
+        <hasMultiInstances>true</hasMultiInstances>
+        <schedule>180</schedule>
+        <appliesTo>isWindows()</appliesTo>
+        <wildcardauto>true</wildcardauto>
+        <wildcardpersist>true</wildcardpersist>
+        <wildcardlinuxscript>ad_script</wildcardlinuxscript>
+        <wildcardlinuxcmdline>type=&#34;powerShell&#34; </wildcardlinuxcmdline>
+        <wildcardwinscript>ad_script</wildcardwinscript>
+        <wildcardwincmdline>type=&#34;powerShell&#34; </wildcardwincmdline>
+        <wildcardgroovyscript>[string]$pathList = &#39;##custom.folderRoots##&#39;
+[System.Collections.ArrayList]$paths = $pathList.Split(&#39;,&#39;)
+
+Foreach ($path in $paths) {
+    Write-Host &#34;$path##$path&#34;
+}
+</wildcardgroovyscript>
+        <wildcardschedule>0</wildcardschedule>
+        <wildcarddisable>false</wildcarddisable>
+        <wildcarddeleteinactive>true</wildcarddeleteinactive>
+        <agdmethod>none</agdmethod>
+        <agdparams></agdparams>
+        <group></group>
+        <tags></tags>
+        <technology>Requires PowerShell remoting to be enabled.</technology>
+        <adlist><![CDATA[{"agdmethod":"none","method":"ad_script","agdparams":"","id":0,"filters":[],"params":{"type":"powerShell","groovyscript":"[string]$pathList = '##custom.folderRoots##'\n[System.Collections.ArrayList]$paths = $pathList.Split(',')\n\nForeach ($path in $paths) {\n    Write-Host \"$path##$path\"\n}\n"}}]]></adlist>
+        <schemaVersion>2</schemaVersion>
+        <dataSourceType>1</dataSourceType>
+        <attributes>
+        <attribute>
+            <name>scripttype</name>
+            <value>powerShell</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>scriptgroovy</name>
+            <value># Initialize variables.
+$path = &#34;##WildValue##&#34;
+$server = &#39;##system.hostname##&#39;
+$user = &#39;##wmi.user##&#39;
+$pass = &#39;##wmi.pass##&#39;
+$secpasswd = ConvertTo-SecureString -String $pass -AsPlainText -Force
+$mycreds = New-Object System.Management.Automation.PSCredential ($user, $secpasswd)
+$current = (Get-Item WSMan:\localhost\Client\TrustedHosts).Value
+
+If ($current.length -gt 0) {
+    If ($current -notmatch $server) {
+        $current += &#34;,$server&#34;
+    }
+}
+Else {
+    $current = &#34;$server&#34;
+}
+Set-Item WSMan:\localhost\Client\TrustedHosts -Value $current -Force
+
+$count = Invoke-Command -ComputerName $server {(Get-ChildItem $args[0] -Recurse -ErrorAction SilentlyContinue | Where-Object {(-NOT $_.PSIsContainer) -and $_.LastWriteTime -gt (Get-Date).AddMinutes(-30)}).count} -Credential $mycreds -ArgumentList $path
+
+Write-Host $count</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>windowsscript</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>linuxscript</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>windowscmdline</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>linuxcmdline</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        </attributes>
+        <datapoints>
+        <datapoint>
+            <name>ChangeCount</name>
+            <dataType>7</dataType>
+            <type>2</type>
+            <postprocessormethod>none</postprocessormethod>
+            <postprocessorparam></postprocessorparam>
+            <usevalue>output</usevalue>
+            <alertexpr></alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody></alertbody>
+            <description></description>
+            <maxvalue></maxvalue>
+            <minvalue></minvalue>
+            <userparam1></userparam1>
+            <userparam2></userparam2>
+            <userparam3></userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        </datapoints>
+        <graphs>
+        </graphs>
+        <overviewgraphs>
+        </overviewgraphs>
+        <scripts>
+        </scripts>
+    </entry>
+</feed>
