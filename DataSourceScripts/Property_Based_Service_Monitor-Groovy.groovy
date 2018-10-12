@@ -9,7 +9,7 @@ def namespace = "CIMv2";
 def timeout = 30;
 
 if (services.contains('SYN_Windows_Basic_Services')) {
-    // Replace the string 'standardServices', with the actual services.
+    // Replace the string 'SYN_Windows_Basic_Services', with the actual services.
     services.remove('SYN_Windows_Basic_Services')
     services.add('Eventlog')
     services.add('lanmanserver')
@@ -66,10 +66,10 @@ try
 
     switch (first_result.STATE) {
         case "Running":
-            println service + " is running"
+            return 0;
             break
         default:
-            println service + " is not running"
+            return 1;
             break
     }
 }
