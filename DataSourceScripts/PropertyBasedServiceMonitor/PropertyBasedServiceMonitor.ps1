@@ -1,10 +1,9 @@
-﻿
-# Begin ActiveDiscovery
-[string]$definedServices = "##custom.MonitoredServices##"
+﻿#region ActiveDiscovery script
+[string]$definedServices = "##synoptek.MonitoredServices##"
 [System.Collections.ArrayList]$services = $definedServices.Split(',')
 
-If ($services -contains 'Windows_Basic_Services') {
-    $services.Remove('Windows_Basic_Services')
+If ($services -contains 'SYN_Windows_Basic_Services') {
+    $services.Remove('SYN_Windows_Basic_Services')
     $services += "Eventlog","lanmanserver","lanmanworkstation","LmHosts","PlugPlay","RpcSs","SamSs","SENS","winmgmt"
 }
 
@@ -18,10 +17,10 @@ ForEach ($service in $services) {
     
     $installedService = $null
 }
-# End ActiveDiscovery
+#endregion
 
 
-# Begin main script
+#region DataSource script
 $serviceName = "##WILDVALUE##"
 $status = $null
 
@@ -33,4 +32,4 @@ If ($status.Status -eq 'Running') {
 Else {
     Write-Host 0
 }
-# End main script
+#endregion
