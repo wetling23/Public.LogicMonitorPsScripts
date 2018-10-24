@@ -5,6 +5,8 @@
         Author: Mike Hashemi
         V1.0.0.0 date: 18 October 2018
             - Initial release.
+        V1.0.0.1 date: 24 October 2018
+            - Added e-mail notification before the upgrades begin.
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts
     .PARAMETER AccessId
@@ -178,6 +180,17 @@ Else {
 
         Return
     }
+}
+
+# Sending pre-upgrade notification to the e-mail recipients.
+Try {
+    Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Information: Collector Upgrade-Script beginning' -To $ReportRecipients -Body ("The following collectors are being upgraded:`n{0}." -f ($($downlevelCollectors.hostname) -join ', '))
+}
+Catch {
+    $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipients, $_.Exception.Message)
+    If (($BlockLogging) -AND ($PSBoundParameters['Verbose'])) {Write-Verbose $message} ElseIf ($PSBoundParameters['Verbose']) {Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417}
+
+    Return
 }
 
 Foreach ($collector in $downlevelCollectors) {
