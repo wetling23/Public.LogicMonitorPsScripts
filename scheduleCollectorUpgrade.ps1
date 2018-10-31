@@ -10,6 +10,8 @@
         V1.0.0.2 date: 31 October 2018
             - Changed $AccessKey to secure string.
             - Fixed mis-identified event log entry. Changed from error to information.
+        V1.0.0.3 date: 31 October 2018
+            - Added #Requires for LogicMonitor module.
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts
     .PARAMETER AccessId
@@ -47,6 +49,7 @@
 
         Attempts to upgrade 50 collectors and sends the output to user1 and user2@company.com. If the most current stable build number is 27003, the script will exit without attempting to install any updates.
 #>
+#Requires –Modules LogicMonitor
 [CmdletBinding()]
 Param (
     [Parameter(Mandatory = $True)]
