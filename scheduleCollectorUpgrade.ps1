@@ -7,6 +7,9 @@
             - Initial release.
         V1.0.0.1 date: 24 October 2018
             - Added e-mail notification before the upgrades begin.
+        V1.0.0.2 date: 31 October 2018
+            - Changed $AccessKey to secure string.
+            - Fixed mis-identified event log entry. Changed from error to information.
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts
     .PARAMETER AccessId
@@ -36,11 +39,11 @@
 
         Attempts to upgrade 50 collectors and sends the output to user1 and user2@company.com.
     .EXAMPLE
-        PS C:\> .\scheduleCollectorupgrade.ps1 -AccessID <access ID> -AccessKey <access key> -AccountName <account name> -MailRelay emailrelay.company.com -SenderEmail scheduledTask@company.com -ReportRecipients "user1@company.com,user2@company.com" -CollectorCount 100
+        PS C:\> .\scheduleCollectorupgrade.ps1 -AccessID <access ID> -AccessKey (<access key> | ConvertTo-SecureString -AsPlainText -Force) -AccountName <account name> -MailRelay emailrelay.company.com -SenderEmail scheduledTask@company.com -ReportRecipients "user1@company.com,user2@company.com" -CollectorCount 100
 
         Attempts to upgrade 100 collectors and sends the output to user1@company.com.
     .EXAMPLE
-        PS C:\> .\scheduleCollectorupgrade.ps1 -AccessID <access ID> -AccessKey <access key> -AccountName <account name> -MailRelay emailrelay.company.com -SenderEmail scheduledTask@company.com -ReportRecipients user1@company.com -SkipVersion 27003
+        PS C:\> .\scheduleCollectorupgrade.ps1 -AccessID <access ID> -AccessKey (<access key> | ConvertTo-SecureString -AsPlainText -Force) -AccountName <account name> -MailRelay emailrelay.company.com -SenderEmail scheduledTask@company.com -ReportRecipients user1@company.com -SkipVersion 27003
 
         Attempts to upgrade 50 collectors and sends the output to user1 and user2@company.com. If the most current stable build number is 27003, the script will exit without attempting to install any updates.
 #>
@@ -50,7 +53,7 @@ Param (
     [string]$AccessId,
 
     [Parameter(Mandatory = $True)]
-    [string]$AccessKey,
+    [SecureString]$AccessKey,
 
     [Parameter(Mandatory = $True)]
     [string]$AccountName,
@@ -90,15 +93,14 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
 "@ # Formatting for the e-mail.
 
 If ($PSBoundParameters['Verbose']) {
-    $cmdParams = @{EventLogSource = $EventLogSource; AccessId = $AccessId; AccessKey = $AccessKey; AccountName = $AccountName; Verbose = $True}
+    $cmdParams = @{EventLogSource = $EventLogSource; AccessId = $AccessId; AccessKey = ([System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($AccessKey))); AccountName = $AccountName; Verbose = $True}
 }
 Else {
-    $cmdParams = @{EventLogSource = $EventLogSource; AccessId = $AccessId; AccessKey = $AccessKey; AccountName = $AccountName}
+    $cmdParams = @{EventLogSource = $EventLogSource; AccessId = $AccessId; AccessKey = ([System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($AccessKey))); AccountName = $AccountName}
 }
 If ($BlockLogging) {
     $cmdParams.Add("BlockLogging", $True)
 }
-
 
 #region In-line functions.
 Function Get-RelevantHistory {
@@ -199,7 +201,7 @@ Foreach ($collector in $downlevelCollectors) {
 
     $status = Update-LogicMonitorCollectorVersion @cmdParams -Id $collector.id -MajorVersion $newestVersion.MajorVersion -MinorVersion $newestVersion.MinorVersion | Select-Object onetimeUpgradeInfo
 
-    If (-NOT($status)) {
+    If (-NOT($status.onetimeUpgradeInfo.startEpoch)) {
         $message = ("{0}: It appears that the upgrade of {1} was not scheduled." -f (Get-Date -Format s), $collector.hostname)
         If (($BlockLogging) -AND ($PSBoundParameters['Verbose'])) {Write-Verbose $message} ElseIf ($PSBoundParameters['Verbose']) {Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417}
     }
