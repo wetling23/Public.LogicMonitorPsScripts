@@ -12,8 +12,10 @@
             - Fixed mis-identified event log entry. Changed from error to information.
         V1.0.0.3 date: 31 October 2018
             - Added #Requires for LogicMonitor module.
-        V1.0.0.4 date 1 November 2018
+        V1.0.0.4 date: 1 November 2018
             - Updated output so errors are always written.
+        V1.0.0.5 date: 2 November 2018
+            - Added logging output.
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts
     .PARAMETER AccessId
@@ -85,7 +87,7 @@ Param (
 )
 
 $message = ("{0}: Beginning {1}." -f (Get-Date -Format s), $MyInvocation.MyCommand)
-If (($BlockLogging) -AND ($PSBoundParameters['Verbose'])) {Write-Verbose $message} ElseIf ($PSBoundParameters['Verbose']) {Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417}
+If ($BlockLogging) {Write-Host $message -ForegroundColor White} Else {Write-Host $message -ForegroundColor White; Write-EventLog -LogName Application -Source $eventLogSource -EntryType Information -Message $message -EventId 5417}
 
 # Initialize variables.
 [timespan]$timeout = New-TimeSpan -Minutes $InstallWaitTime
@@ -188,6 +190,9 @@ Else {
         Return
     }
 }
+
+$message = ("{0}: Attempting to send a pre-upgrade e-mail to {1}." -f (Get-Date -Format s), $ReportRecipients)
+If ($BlockLogging) {Write-Host $message -ForegroundColor White} Else {Write-Host $message -ForegroundColor White; Write-EventLog -LogName Application -Source $eventLogSource -EntryType Information -Message $message -EventId 5417}
 
 # Sending pre-upgrade notification to the e-mail recipients.
 Try {
