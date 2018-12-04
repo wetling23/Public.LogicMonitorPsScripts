@@ -16,6 +16,8 @@
             - Updated output so errors are always written.
         V1.0.0.5 date: 2 November 2018
             - Added logging output.
+        V1.0.0.6 date: 4 December 2018
+            - Fixed bug in how we use $ReportRecipients.
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts
     .PARAMETER AccessId
@@ -149,7 +151,7 @@ Else {
     If (($BlockLogging) -AND ($PSBoundParameters['Verbose'])) {Write-Verbose $message} ElseIf ($PSBoundParameters['Verbose']) {Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417}
 
     Try {
-        Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Failure: Collector Upgrade-Script Failure (version retrieval)' -To $ReportRecipients -Body ("Consult the Windows Application log on {1} for details." -f $env:COMPUTERNAME)
+        Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Failure: Collector Upgrade-Script Failure (version retrieval)' -To ($ReportRecipients -split ",") -Body ("Consult the Windows Application log on {1} for details." -f $env:COMPUTERNAME)
     }
     Catch {
         $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipients, $_.Exception.Message)
@@ -181,7 +183,7 @@ Else {
     If (($BlockLogging) -AND ($PSBoundParameters['Verbose'])) {Write-Verbose $message} ElseIf ($PSBoundParameters['Verbose']) {Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417}
 
     Try {
-        Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Failure: Collector Upgrade-Script Failure (collector retrieval)' -To $ReportRecipients -Body ("Consult the Windows Application log on {1} for details." -f $env:COMPUTERNAME)
+        Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Failure: Collector Upgrade-Script Failure (collector retrieval)' -To ($ReportRecipients -split ",") -Body ("Consult the Windows Application log on {1} for details." -f $env:COMPUTERNAME)
     }
     Catch {
         $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipients, $_.Exception.Message)
@@ -196,7 +198,7 @@ If ($BlockLogging) {Write-Host $message -ForegroundColor White} Else {Write-Host
 
 # Sending pre-upgrade notification to the e-mail recipients.
 Try {
-    Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Information: Collector Upgrade-Script beginning' -To $ReportRecipients -Body ("The following collectors are being upgraded:`n{0}." -f ($($downlevelCollectors.hostname) -join ', '))
+    Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Information: Collector Upgrade-Script beginning' -To ($ReportRecipients -split ",") -Body ("The following collectors are being upgraded:`n{0}." -f ($($downlevelCollectors.hostname) -join ', '))
 }
 Catch {
     $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipients, $_.Exception.Message)
