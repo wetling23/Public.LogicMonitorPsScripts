@@ -25,9 +25,11 @@ Else {
     $version = cmd /c "$sshPath\ssh.exe" -V 2`>`&1
 
     Switch ($version) {
-        {($_ -match $regex) -and ($_ -match "7.7")} {
+        {($_ -match $regex) -and ($_ -match "7.9")} {
             Write-Host "minimumVersionMet=1"
             Write-Host ("version={0}" -f ($version -split $regex)[1])
+
+            Break
         }
         default {
             Write-Host "minimumVersionMet=0"
