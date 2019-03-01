@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<feed  version="1.0" hasPendingRequests="false" >
+  <company></company>
+  <status>200</status>
+  <errmsg>OK</errmsg>
+  <interval>0</interval>
+    <entry type="predatasource">
+        <version>1551460183</version>
+        <name>Mapped_Drive_Presence</name>
+        <displayedas>Mapped Drive Presence</displayedas>
+        <description>PowerShell script to detect if a previously-detected mapped drive becomes un-mapped (as reported by WMI).</description>
+        <collector>script</collector>
+        <hasMultiInstances>true</hasMultiInstances>
+        <schedule>180</schedule>
+        <appliesTo>isWindows()</appliesTo>
+        <wildcardauto>true</wildcardauto>
+        <wildcardpersist>true</wildcardpersist>
+        <wildcardlinuxscript>ad_script</wildcardlinuxscript>
+        <wildcardlinuxcmdline>type=&#34;powerShell&#34; </wildcardlinuxcmdline>
+        <wildcardwinscript>ad_script</wildcardwinscript>
+        <wildcardwincmdline>type=&#34;powerShell&#34; </wildcardwincmdline>
+        <wildcardgroovyscript>&#60;#
+    .DESCRIPTION
+        Returns list of used drive letters on the target device.
+#&#62;
+
+$computer = &#34;##SYSTEM.HOSTNAME##&#34;
+$credential = New-Object System.Management.Automation.PSCredential (&#34;##WMI.USER##&#34;, (&#39;##WMI.PASS##&#39; | ConvertTo-SecureString -AsPlainText -Force))
+
+Try {
+    $drives = Get-WmiObject -Class Win32_MappedLogicalDisk -ComputerName $computer -Credential $credential | Select-Object -ExpandProperty DeviceID
+}
+Catch {
+    Write-Host (&#34;Unexpected error getting drive list. Error is: {0}&#34; -f $_.Exception.Message)
+
+    Exit 1
+}
+
+Foreach ($drive in $drives) {
+    Write-Host &#34;$drive##$drive&#34;
+}
+
+Exit 0</wildcardgroovyscript>
+        <wildcardschedule>0</wildcardschedule>
+        <wildcarddisable>false</wildcarddisable>
+        <wildcarddeleteinactive>true</wildcarddeleteinactive>
+        <agdmethod>none</agdmethod>
+        <agdparams></agdparams>
+        <group></group>
+        <tags></tags>
+        <technology>Query the Win32_MappedLogicalDisk class to determine what mapped drives are detected. If a drive is discovered, then later, disappears, raise an alert.</technology>
+        <adlist><![CDATA[{"agdmethod":"none","method":"ad_script","agdparams":"","id":0,"filters":[],"params":{"type":"powerShell","groovyscript":"<#\r\n    .DESCRIPTION\r\n        Returns list of used drive letters on the target device.\r\n#>\r\n\r\n$computer = \"##SYSTEM.HOSTNAME##\"\r\n$credential = New-Object System.Management.Automation.PSCredential (\"##WMI.USER##\", ('##WMI.PASS##' | ConvertTo-SecureString -AsPlainText -Force))\r\n\r\nTry {\r\n    $drives = Get-WmiObject -Class Win32_MappedLogicalDisk -ComputerName $computer -Credential $credential | Select-Object -ExpandProperty DeviceID\r\n}\r\nCatch {\r\n    Write-Host (\"Unexpected error getting drive list. Error is: {0}\" -f $_.Exception.Message)\r\n\r\n    Exit 1\r\n}\r\n\r\nForeach ($drive in $drives) {\r\n    Write-Host \"$drive##$drive\"\r\n}\r\n\r\nExit 0"}}]]></adlist>
+        <schemaVersion>2</schemaVersion>
+        <dataSourceType>1</dataSourceType>
+        <attributes>
+        <attribute>
+            <name>scripttype</name>
+            <value>powerShell</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>scriptgroovy</name>
+            <value>&#60;#
+    .DESCRIPTION
+        Accepts a driver letter and returns a status based on whether or not the letter is present on the target device.
+#&#62;
+
+$desiredDrive = &#34;##WILDVALUE##&#34;
+$computer = &#34;##SYSTEM.HOSTNAME##&#34;
+$credential = New-Object System.Management.Automation.PSCredential (&#34;##WMI.USER##&#34;, (&#39;##WMI.PASS##&#39; | ConvertTo-SecureString -AsPlainText -Force))
+
+Try {
+    $drives = Get-WmiObject -Class Win32_MappedLogicalDisk -ComputerName $computer -Credential $credential | Select-Object -ExpandProperty DeviceID
+}
+Catch {
+    Write-Host (&#34;Unexpected error getting drive list. Error is: {0}&#34; -f $_.Exception.Message)
+
+    Exit 1
+}
+
+Foreach ($drive in $drives) {
+    If ($drive -match $desiredDrive) {
+        Write-Host &#39;DrivePresent=1&#39;
+
+        Exit 0
+    }
+    Else {
+        Write-Host &#39;DrivePresent=0&#39;
+    }
+}
+
+Exit 0</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>windowsscript</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>linuxscript</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>windowscmdline</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>linuxcmdline</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        </attributes>
+        <datapoints>
+        <datapoint>
+            <name>DriveStatus</name>
+            <dataType>7</dataType>
+            <type>2</type>
+            <postprocessormethod>regex</postprocessormethod>
+            <postprocessorparam>DrivePresent=(\d)</postprocessorparam>
+            <usevalue>output</usevalue>
+            <alertexpr></alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody></alertbody>
+            <description></description>
+            <maxvalue></maxvalue>
+            <minvalue></minvalue>
+            <userparam1></userparam1>
+            <userparam2></userparam2>
+            <userparam3></userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        </datapoints>
+        <graphs>
+        </graphs>
+        <overviewgraphs>
+        </overviewgraphs>
+        <scripts>
+        </scripts>
+    </entry>
+</feed>
