@@ -1,0 +1,45 @@
+{
+    "auditVersion": 0,
+    "scheduleOption": 0,
+    "name": "ExchangeVersion",
+    "description": "",
+    "appliesTo": "isWindows()",
+    "id": 28,
+    "technology": "",
+    "type": "propertyrule",
+    "params": [
+        {
+            "name": "linuxcmdline",
+            "comment": "",
+            "value": ""
+        },
+        {
+            "name": "linuxscript",
+            "comment": "",
+            "value": ""
+        },
+        {
+            "name": "scriptgroovy",
+            "comment": "",
+            "value": "import com.santaba.agent.groovyapi.win32.WMI;\r\nimport com.santaba.agent.groovyapi.win32.WMISession;\r\n\r\nhostname=hostProps.get(\"system.hostname\");\r\nmy_query=\"Select * FROM Win32_Product where Name = 'Microsoft Exchange Server'\"\r\n\r\ndef session = WMI.open(hostname);\r\ndef obj = session.queryFirst(\"CIMv2\", my_query, 100); \r\n\r\nprintln \"ExchangeVersion=\" + obj.VERSION;\r\nreturn 0"
+        },
+        {
+            "name": "scripttype",
+            "comment": "embed",
+            "value": "embed"
+        },
+        {
+            "name": "windowscmdline",
+            "comment": "",
+            "value": ""
+        },
+        {
+            "name": "windowsscript",
+            "comment": "",
+            "value": ""
+        }
+    ],
+    "version": 1551659189,
+    "group": "Windows",
+    "tags": ""
+}
