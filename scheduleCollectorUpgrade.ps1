@@ -57,7 +57,7 @@
 
         Attempts to upgrade 50 collectors and sends the output to user1 and user2@company.com. If the most current stable build number is 27003, the script will exit without attempting to install any updates.
 #>
-#Requires –Modules LogicMonitor
+#Requires -Modules LogicMonitor
 [CmdletBinding()]
 Param (
     [Parameter(Mandatory = $True)]
