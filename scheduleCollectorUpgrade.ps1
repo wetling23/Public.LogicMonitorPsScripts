@@ -18,6 +18,8 @@
             - Added logging output.
         V1.0.0.6 date: 4 December 2018
             - Fixed bug in how we use $ReportRecipients.
+        V1.0.0.7 date: 5 March 2019
+            - Fixed bug with newest-version identification.
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts
     .PARAMETER AccessId
@@ -140,7 +142,7 @@ $message = ("{0}: Attempting to retrieve the most recent collector version, from
 If (($BlockLogging) -AND ($PSBoundParameters['Verbose'])) {Write-Verbose $message} ElseIf ($PSBoundParameters['Verbose']) {Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417}
 
 # Retrieve the most recent stable version (major and minor) of the collector software.
-$newestVersion = Get-LogicMonitorCollectorAvailableVersions @cmdParams | Where-Object {$_.stable -eq $true} | Select-Object -Last 1
+$newestVersion = Get-LogicMonitorCollectorAvailableVersions @cmdParams | Where-Object {$_.stable -eq $true} | Sort-Object -Property majorVersion -Descending | Select-Object -First 1 | Sort-Object -Property minorVersion -Descending | Select-Object -First 1
 
 If ($newestVersion) {
     $message = ("{0}: The most recent collector version is {1}.{2}." -f (Get-Date -Format s), $newestVersion.MajorVersion, (($newestVersion.minorVersion).ToString()).PadLeft(3, '0'))
