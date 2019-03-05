@@ -9,9 +9,9 @@ $outPath = 'C:\it\test.csv'
 
 $allDevices = Get-LogicMonitorDevices -AccessId $accessId -AccessKey $accessKey -AccountName $account -BlockLogging
 
-$exchangeServers = Foreach ($server in $alllmdevices) {
+$exchangeServers = Foreach ($server in $allDevices) {
     Foreach ($prop in $server.autoproperties) {
-        If ($prop.name -eq 'auto.exchangeversion') {
+        If ($prop.name -eq 'auto.rmmpatchsettings') {
             $objectProperty = [ordered]@{
                 LmDisplayName       = $server.displayname
                 LmHostName          = $server.hostname
