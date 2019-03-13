@@ -321,7 +321,7 @@ Foreach ($dc in $domainControllers) {
 
 Write-Output ("{0}: Attempting to use Get-ADReplicationSubnet." -f (Get-Date -Format s)) | Out-File -FilePath $log_full_path -Append
 Try {
-    $sites = Get-ADReplicationSubnet -Filter * -ErrorAction Stop @searchParams
+    $sites = Get-ADReplicationSubnet -Filter * @searchParams
 
     If ($sites) {
         $siteList = Foreach ($site in $sites) {
@@ -342,7 +342,7 @@ Try {
     }
 }
 Catch {
-    Write-Output ("{0}: Using Get-ADReplicationSubnet failed. Attempting to use the System.DirectoryServices.ActiveDirectory method." -f (Get-Date -Format s)) | Out-File -FilePath $log_full_path -Append
+    Write-Output ("{0}: Using Get-ADReplicationSubnet failed {1}. Attempting to use the System.DirectoryServices.ActiveDirectory method." -f (Get-Date -Format s), $_.Exception.Message) | Out-File -FilePath $log_full_path -Append
     Try {
         $siteList = Invoke-Command -Credential $cred -ComputerName $hostname -ScriptBlock {
             $forestName = $args[0]
