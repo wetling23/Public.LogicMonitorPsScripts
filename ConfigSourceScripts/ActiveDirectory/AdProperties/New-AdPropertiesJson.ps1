@@ -7,20 +7,21 @@
             - Initial release.
         V1.0.0.1 date: 21 March 2019
             - Renamed file because of LogicMonitor's intermittent timeout while collecting. The script can still be run manually, but the new name better represents what is happening.
+        V1.0.0.2 date: 2 April 2019
+            - Added replication links to output.
+            - Updated in-line documentation.
     .LINK
-        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/ActiveDirectory/GetAdProperties
-    .PARAMETER OnDomainController
-        Include if the script is being run on a domain controller. If not specified, the script will check for the ADWS and NTDS services, to determine if it is running on a DC.
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/ActiveDirectory/AdProperties
     .PARAMETER DcFqdn
         Fully qualified domain name for a target domain controller. If not specified, the script will take the hostname (if $OnDomainController == $true) or will prompt the user for a server name.
     .PARAMETER Credential
         Domain admin credential. If the script is run manually and not on a domain controller, the user is prompted to provide a username and password.
     .EXAMPLE
-        PS C:\Get_AdProperties.ps1 -DcFqdn server.domain.local -Credential (Get-Credential) -Verbose
+        PS C:\New-AdPropertiesJson.ps1 -DcFqdn server.domain.local -Credential (Get-Credential) -Verbose
 
         In this example, the script is run manually and a credential is provided by the user. Output is sent to the host session and to the log file.
     .EXAMPLE
-        PS C:\Get_AdProperties.ps1
+        PS C:\New-AdPropertiesJson.ps1
 
         In this example, the script is run manually. The user will be prompted to provide a hostname (if the script is not run from a DC) and a credential is provided by the user. Output is sent only to the log file.
 #>
@@ -280,35 +281,6 @@ Function Get-AdSettings {
     If ($OnDomainController) {
         Try {
             $forest = Get-ADForest
-
-            $message = ("{0}: Mapping ForestMode to `$forestMode." -f (Get-Date -Format s))
-            If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
-
-            $forestMode = Switch ($forest.ForestMode) {
-                default {$_}
-                0 {
-                    "Windows2000Forest"
-                }
-                1 {
-                    "Windows2003InterimForest"
-                }
-                2 {
-                    "Windows2003Forest"
-                }
-                3 {
-                    "Windows2008Forest"
-                }4 {
-                    "Windows2008R2Forest"
-                }5 {
-                    "Windows8Forest"
-                }
-                6 {
-                    "Windows2012R2Forest"
-                }
-            }
-
-            $message = ("{0}: The forest mode is {1}." -f (Get-Date -Format s), $forestMode)
-            If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
         }
         Catch {
             $message = ("{0}: Running Get-ADForest failed: {1}, attempting to use the System.DirectoryServices.ActiveDirectory method." -f (Get-Date -Format s), $_.Exception.Message)
@@ -318,35 +290,6 @@ Function Get-AdSettings {
     Else {
         Try {
             $forest = Get-ADForest @commandParams
-
-            $message = ("{0}: Mapping ForestMode to `$forestMode." -f (Get-Date -Format s))
-            If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
-
-            $forestMode = Switch ($forest.ForestMode) {
-                default {$_}
-                0 {
-                    "Windows2000Forest"
-                }
-                1 {
-                    "Windows2003InterimForest"
-                }
-                2 {
-                    "Windows2003Forest"
-                }
-                3 {
-                    "Windows2008Forest"
-                }4 {
-                    "Windows2008R2Forest"
-                }5 {
-                    "Windows8Forest"
-                }
-                6 {
-                    "Windows2012R2Forest"
-                }
-            }
-
-            $message = ("{0}: The forest mode is {1}." -f (Get-Date -Format s), $forestMode)
-            If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
         }
         Catch {
             $message = ("{0}: Running Get-ADForest failed: {1}, attempting to use the System.DirectoryServices.ActiveDirectory method." -f (Get-Date -Format s), $_.Exception.Message)
@@ -387,39 +330,6 @@ Function Get-AdSettings {
 
     Try {
         $domain = Get-ADDomain @commandParams
-
-        $message = ("{0}: Mapping DomainMode to `$domainMode." -f (Get-Date -Format s))
-        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
-        $domainMode = Switch ($domain.DomainMode) {
-            default {$_}
-            0 {
-                "Windows2000Mixed"
-            }
-            1 {
-                "Windows2000Native"
-            }
-            2 {
-                "Windows2003Interim"
-            }
-            3 {
-                "Windows2003"
-            }
-            4 {
-                "Windows2008"
-            }
-            5 {
-                "Windows2008R2"
-            }
-            6 {
-                "Windows8"
-            }
-            7 {
-                "Windows2012R2"
-            }
-        }
-
-        $message = ("{0}: The domain mode is {1}." -f (Get-Date -Format s), $domainMode)
-        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
     }
     Catch {
         $message = ("{0}: Running Get-ADDomain failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
@@ -604,6 +514,36 @@ Function Get-AdSettings {
             }
         }
     }
+    <#
+    Commented out for now. Maybe we'll add this data to the flexible asset later.
+    $message = ("{0}: Running Get-ADReplicationConnection." -f (Get-Date -Format s))
+    If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+
+    Try {
+        $replicationConnections = Foreach ($dc in $domaincontrollers) {
+            $message = ("{0}: Getting connections for {1}." -f (Get-Date -Format s), $dc.Name)
+            If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+
+            $allConnections = Get-ADReplicationConnection -Credential $cred -Server $dc.Name -Filter * -ErrorAction Stop
+
+            Foreach ($connection in ($allConnections | Where-Object {($_.Name).Length -lt 36})) {
+                $connectionObj = New-Object -Type PSObject -Property (
+                    @{
+                        "Name"          = $connection.Name;
+                        "ReplicateFrom" = $connection.ReplicateFromDirectoryServer;
+                        "ReplicateTo"   = $connection.ReplicateToDirectoryServer
+                        "AutoGenerated" = $connection.AutoGenerated;
+                    }
+                )
+                $connectionObj
+            }
+        }
+    }
+    Catch {
+        $message = ("{0}: Running Get-ADReplicationConnection failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+    }
+    #>
 
     $message = ("{0}: Running Get-ADOptionalFeature." -f (Get-Date -Format s))
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
@@ -615,6 +555,10 @@ Function Get-AdSettings {
         $message = ("{0}: Running Get-ADOptionalFeature failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
     }
+
+    Switch ($forest.ForestMode.value__) {0 {$forestMode = "Windows 2000 Forest"}; 1 {$forestMode = "Windows 2003 Interim Forest"}; 2 {$forestMode = "Windows 2003 Forest"}; 3 {$forestMode = "Windows 2008 Forest"}; 4 {$forestMode = "Windows 2008R2 Forest"}; 5 {$forestMode = "Windows 8 Forest"}; 6 {$forestMode = "Windows 2012R2 Forest"}}
+    Switch ($domain.domainMode.value__) {0 {$domainMode = "Windows 2000 Mixed"}; 1 {$domainMode = "Windows 2000 Native"}; 2 {$domainMode = "Windows2003 Interim"}; 3 {$domainMode = "Windows 2003"}; 4 {$domainMode = "Windows 2008"}; 5 {$domainMode = "Windows 2008R2"}; 6 {$domainMode = "Windows 8"}; 7 {$domainMode = "Windows 2012R2"}}
+    If (-NOT($forestMode)) {$forestMode = $forest.ForestMode}
 
     $message = ("{0}: Assigning properties to `$object." -f (Get-Date -Format s))
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
@@ -637,6 +581,7 @@ Function Get-AdSettings {
         SiteList              = @($siteList)
         SiteLinks             = @($siteLinks)
         Trusts                = @($trusts)
+        #ReplicationLinks      = @($replicationConnections) # Commented out for now. Maybe we'll add this data to the flexible asset later.
         OptionalFeatures      = @($optionalFeatures)
     }
 
