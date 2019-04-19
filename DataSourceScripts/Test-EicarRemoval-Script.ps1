@@ -1,11 +1,41 @@
-$username = "##wmi.user##"
-$password = "##wmi.pass##"
-$domainCred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, ($password | ConvertTo-SecureString -AsPlainText -Force)
-$server = "##system.hostname##"
+<#
+    .DESCRIPTION
+        This script generates an eicar (virus detection test) file on the monitored device. If the antivirus software is operating properly, we expect the file to be removed. If it is present, the DS assumes that AV is not functioning.
+    .NOTES
+        Author: Mike Hashemi
+        V1.0.0.0 date: 19 April 2019
+            - Initial release.
+#>
+[CmdletBinding]
 
-# Add the remote device to the list of TrustedHosts, if the collector is not on a domain.
-If (-NOT(Get-WmiObject -Class Win32_ComputerSystem).PartOfDomain) {
-    Set-Item WSMan:\Localhost\Client\TrustedHosts -Value $server -Force -Concatenate
+# Initialize variables.
+$server = "##SYSTEM.HOSTNAME##"
+$domainCred = New-Object System.Management.Automation.PSCredential ("##WMI.USER##", ('##WMI.PASS##' | ConvertTo-SecureString -AsPlainText -Force))
+If (Test-Path -Path "C:\Program Files (x86)\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
+    $logDirPath = "C:\Program Files (x86)\LogicMonitor\Agent\Logs" # Directory, into which the collector will write the log file.
+}
+Else {
+    $logDirPath = "$([System.Environment]::SystemDirectory)" # Directory, into which the log file will be written.
+}
+$logFile = "$logDirPath\datasource-Test_Eicar_Removal-collection-$server.log"
+
+$message = ("{0}: Checking TrustedHosts file." -f [datetime]::now)
+If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+# Add the target device to TrustedHosts.
+If (((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -notmatch $DcFqdn) -and ((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -ne "*") -and ($DcFqdn -ne "127.0.0.1")) {
+    $message = ("{0}: Adding {1} to TrustedHosts." -f [datetime]::now, $hostDcFqdnname)
+    If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    Try {
+        Set-Item -Path WSMan:\localhost\Client\TrustedHosts -Value $DcFqdn -Concatenate -Force -ErrorAction Stop
+    }
+    Catch {
+        $message = ("Unexpected error updating TrustedHosts: {0}" -f $_.Exception.Message)
+        If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+        Exit 1
+    }
 }
 
 $session = New-PSSession -Name eicarMonitor -ComputerName $server -Credential $domainCred
@@ -31,7 +61,7 @@ $status = Invoke-Command -Session $session -ScriptBlock {
                 https://github.com/obscuresec/random/blob/master/New-Eicar
         #>
         [CmdletBinding()] Param(
-            [ValidateScript( {Test-Path $_ -PathType 'Container'})]
+            [ValidateScript( { Test-Path $_ -PathType 'Container' })]
             [string]$Path = "$env:temp\"
         )
 
@@ -62,5 +92,8 @@ $status = Invoke-Command -Session $session -ScriptBlock {
 }
 
 Get-PSSession -Name eicarMonitor | Remove-PSSession
+
+$message = ("{0}: Invoke-Command returned: {1}." -f [datetime]::now, $status)
+If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
 Write-Host $status
