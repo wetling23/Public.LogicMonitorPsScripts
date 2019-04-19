@@ -97,3 +97,5 @@ $message = ("{0}: Invoke-Command returned: {1}." -f [datetime]::now, $status)
 If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
 Write-Host $status
+
+Exit 0
