@@ -21,7 +21,9 @@
         .PARAMETER Credential
             Windows credential with rights to connect to the target server.
         .EXAMPLE
-        .EXAMPLE
+            PS C:> Get-ProcessCpuUsage -ComputerName server1 -ProcessName 'conhost','svchost' -Credential (Get-Credential)
+
+            In this example, the script connects to server1 and gets the CPU utilization of the conhost and svchost processes. The user is prompted for credentials so server1 will allow the connection.
     #>
     [CmdletBinding()]
     Param (
