@@ -111,7 +111,6 @@
 $ComputerName = "##HOSTNAME##" # Target host for the script to query.
 $cred = New-Object System.Management.Automation.PSCredential("##WMI.USER##", ('##WMI.PASS##' | ConvertTo-SecureString -AsPlainText -Force))
 $procs = [System.Collections.Generic.List[String]]@((("##custom.procCpu##").Split(',')).Replace("`"", ""))
-$procs = [System.Collections.Generic.List[String]]@('conhost', 'cagservice')
 
 # Add the target device to TrustedHosts.
 If (((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -notmatch $ComputerName) -and ((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -ne "*") -and ($ComputerName -ne "127.0.0.1")) {
