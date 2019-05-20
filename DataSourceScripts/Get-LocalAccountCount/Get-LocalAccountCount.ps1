@@ -95,7 +95,7 @@ Function Get-LocalAccountCount {
     }
 }
 
-# Initialize variables.
+#region Initialize variables
 $computerName = "##HOSTNAME##" # Target host for the script to query.
 
 If (Test-Path -Path "C:\Program Files (x86)\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
@@ -139,6 +139,7 @@ $filter = (($filter -split $regex)[0]).Replace("= `" ", "= `"") # Remove the tra
 
 $message = ("{0}: Using filter: {1}." -f [datetime]::Now, $filter)
 If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+#endregion initialize variables
 
 $message = ("{0}: Checking TrustedHosts." -f [datetime]::Now, $filter)
 If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
@@ -171,8 +172,8 @@ If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File
 $users = Get-LocalAccountCount -ComputerName $computerName -Credential $cred -Filter $filter -LogFile $logFile
 
 Switch ($users) {
-    { $_ -eq "Error" } {
-        $message = ("{0}: Returning error. See the log file at: {1}." -f [datetime]::Now, $logFile)
+    { $_ -match "Error" } {
+        $message = ("{0}: Error: {1}. See the log file at: {2}" -f [datetime]::Now, $users, $logFile)
         Write-Error $message; $message | Out-File -FilePath $logFile -Append
 
         Exit 1
