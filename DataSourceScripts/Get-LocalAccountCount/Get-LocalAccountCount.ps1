@@ -41,13 +41,24 @@ Function Get-LocalAccountCount {
     If ($null -eq $filter) {
         $filter = '*'
     }
+
     If (($ComputerName -eq $env:ComputerName) -or ($ComputerName -eq "127.0.0.1")) {
         $message = ("{0}: Operating locally." -f [datetime]::Now)
         If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
-        $users = [System.Collections.Generic.List[String]]@(
-            Get-CimInstance -ClassName Win32_UserAccount -Filter $Filter
-        )
+        Try {
+            $users = [System.Collections.Generic.List[String]]@(
+                Get-CimInstance -ClassName Win32_UserAccount -Filter $Filter
+            )
+        }
+        Catch {
+            Else {
+                $message = ("{0}: Unexpected error retrieving users from the local machine. The specific error is: {1}." -f [datetime]::Now, $_.Exception.Message)
+                Write-Error $message; $message | Out-File -FilePath $logFile -Append
+
+                $users = "Error"
+            }
+        }
     }
     Else {
         $message = ("{0}: Operating remotely." -f [datetime]::Now)
@@ -59,12 +70,29 @@ Function Get-LocalAccountCount {
                     $Filter
                 )
 
-                Get-CimInstance -ClassName Win32_UserAccount -Filter $Filter
+                Try {
+                    Get-CimInstance -ClassName Win32_UserAccount -Filter $Filter -ErrorAction Stop
+                }
+                Catch {
+                    Else {
+                        $message = ("{0}: Unexpected error retrieving users from the local machine. The specific error is: {1}." -f [datetime]::Now, $_.Exception.Message)
+                        Write-Error $message; $message | Out-File -FilePath $logFile -Append
+
+                        $users = ("Error: {0}" -f $_.Exception.Message)
+
+                        $users
+                    }
+                }
             } -ArgumentList $Filter -ErrorAction Stop
         )
     }
 
-    $users
+    If (($null -eq $users) -or ($users.count -eq 0)) {
+        Return 0
+    }
+    Else {
+        $users
+    }
 }
 
 # Initialize variables.
@@ -92,7 +120,9 @@ Catch {
     }
     Else {
         $message = ("{0}: Unexpected error creating a credential object. To prevent errors, the script will exit. The specific error is: {1}." -f [datetime]::Now, $_.Exception.Message)
-        If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+        Write-Error $message; $message | Out-File -FilePath $logFile -Append
+
+        Exit 1
     }
 }
 
@@ -140,17 +170,27 @@ If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File
 
 $users = Get-LocalAccountCount -ComputerName $computerName -Credential $cred -Filter $filter -LogFile $logFile
 
-If ($users.count) {
-    $message = ("{0}: Returning {1} users." -f [datetime]::Now, $users.count)
-    If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+Switch ($users) {
+    { $_ -eq "Error" } {
+        $message = ("{0}: Returning error. See the log file at: {1}." -f [datetime]::Now, $logFile)
+        Write-Error $message; $message | Out-File -FilePath $logFile -Append
 
-    Write-Host ("LocalAcctCount={0}" -f $users.Count)
+        Exit 1
+    }
+    { $_ -ne 0 } {
+        $message = ("{0}: Returning {1} users ({2})." -f [datetime]::Now, $_.Count, ($_ -join ', '))
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
-    Exit 0
-}
-Else {
-    $message = ("{0}: Returning error. See the log file at: {1}." -f [datetime]::Now, $logFile)
-    Write-Error $message; $message | Out-File -FilePath $logFile -Append
+        Write-Host ("LocalAcctCount={0}" -f $_.Count)
 
-    Exit 1
+        Exit 0
+    }
+    { ($_ -eq 0) } {
+        $message = ("{0}: No unexpected users found." -f [datetime]::Now)
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+        Write-Host ("LocalAcctCount=0")
+
+        Exit 0
+    }
 }
