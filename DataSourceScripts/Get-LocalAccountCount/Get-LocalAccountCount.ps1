@@ -194,4 +194,10 @@ Switch ($users) {
 
         Exit 0
     }
+    default {
+        $message = ("{0}: Unexpected condition, returning 1." -f [datetime]::Now)
+        Write-Error $message; $message | Out-File -FilePath $logFile -Append
+
+        Exit 1
+    }
 }
