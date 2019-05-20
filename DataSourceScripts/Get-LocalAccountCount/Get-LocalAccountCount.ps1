@@ -7,7 +7,7 @@ Function Get-LocalAccountCount {
             V1.0.0.0 date: 20 May 2019
                 - Initial release
         .LINK
-            
+            https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Get-LocalAccountCount
         .PARAMETER ComputerName
             Hostname or IP address of the target Windows device.
         .PARAMETER Credential
