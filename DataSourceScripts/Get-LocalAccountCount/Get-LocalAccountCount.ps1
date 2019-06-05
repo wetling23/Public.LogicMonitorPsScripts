@@ -141,7 +141,7 @@ $message = ("{0}: Using filter: {1}." -f [datetime]::Now, $filter)
 If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 #endregion initialize variables
 
-$message = ("{0}: Checking TrustedHosts." -f [datetime]::Now, $filter)
+$message = ("{0}: Checking TrustedHosts." -f [datetime]::Now)
 If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
 # If necessary, update TrustedHosts.
@@ -166,7 +166,7 @@ If (-NOT(($computerName -eq $env:computerName) -or ($computerName -eq "127.0.0.1
     }
 }
 
-$message = ("{0}: Calling Get-LocalAccountCount." -f [datetime]::Now, $filter)
+$message = ("{0}: Calling Get-LocalAccountCount." -f [datetime]::Now)
 If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
 $users = Get-LocalAccountCount -ComputerName $computerName -Credential $cred -Filter $filter -LogFile $logFile
