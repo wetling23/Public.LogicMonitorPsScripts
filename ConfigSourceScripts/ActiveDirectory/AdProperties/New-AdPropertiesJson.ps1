@@ -32,7 +32,7 @@ param (
     [System.Management.Automation.PSCredential]$Credential
 )
 
-$message = ("{0}: Checking if the script is running on a domain controller.." -f (Get-Date -Format s))
+$message = ("{0}: Checking if the script is running on a domain controller.." -f [datetime]::Now)
 If ($PSBoundParameters['Verbose']) {Write-Verbose $message}
 
 $OnDomainController = If (Get-WmiObject -Class win32_service -Filter "Name='ADWS' OR Name='NTDS'") {$true} Else {$False} # Used by the script, to determine if we need to find a DC.
@@ -176,7 +176,7 @@ Function Get-GpoReportData {
                     $reportValues = ($fullReport.GPO.($importantGpo.ConfigPath).ExtensionData | Where-Object {$_.Name -eq $importantGpo.SettingsTypePath }).Extension.($importantGpo.SettingsGroup) | Where-Object {$_.Name -eq $importantGpo.Name}
 
                     If ($reportValues) {
-                        $message = ("{0}: Found {1} GPO settings, adding to list." -f (Get-Date -Format s), $importantGpo.Name)
+                        $message = ("{0}: Found {1} GPO settings, adding to list." -f [datetime]::Now, $importantGpo.Name)
                         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
                         Foreach ($setting in $importantGpo.SettingsList) {
@@ -205,7 +205,7 @@ Function Get-GpoReportData {
                         $reportValues = ($fullReport.GPO.($importantGpo.ConfigPath).ExtensionData | Where-Object {$_.Name -eq $importantGpo.SettingsTypePath}).Extension.($importantGpo.SettingsGroup)
                     }
                     If ($reportValues) {
-                        $message = ("{0}: Found {1} GPO settings, adding to list." -f (Get-Date -Format s), $importantGpo.Name)
+                        $message = ("{0}: Found {1} GPO settings, adding to list." -f [datetime]::Now, $importantGpo.Name)
                         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
                         Foreach ($setting in $importantGpo.SettingsList) {
@@ -276,7 +276,7 @@ Function Get-AdSettings {
         [string]$LogFile
     )
 
-    $message = ("{0}: Running Get-ADForest." -f (Get-Date -Format s))
+    $message = ("{0}: Running Get-ADForest." -f [datetime]::Now)
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
     If ($OnDomainController) {
@@ -284,7 +284,7 @@ Function Get-AdSettings {
             $forest = Get-ADForest
         }
         Catch {
-            $message = ("{0}: Running Get-ADForest failed: {1}, attempting to use the System.DirectoryServices.ActiveDirectory method." -f (Get-Date -Format s), $_.Exception.Message)
+            $message = ("{0}: Running Get-ADForest failed: {1}, attempting to use the System.DirectoryServices.ActiveDirectory method." -f [datetime]::Now, $_.Exception.Message)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
         }
     }
@@ -293,13 +293,13 @@ Function Get-AdSettings {
             $forest = Get-ADForest @commandParams
         }
         Catch {
-            $message = ("{0}: Running Get-ADForest failed: {1}, attempting to use the System.DirectoryServices.ActiveDirectory method." -f (Get-Date -Format s), $_.Exception.Message)
+            $message = ("{0}: Running Get-ADForest failed: {1}, attempting to use the System.DirectoryServices.ActiveDirectory method." -f [datetime]::Now, $_.Exception.Message)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
         }
     }
 
     If (-NOT($forest)) {
-        $message = ("{0}: No forest found. To prevent errors, the script will exit." -f (Get-Date -Format s))
+        $message = ("{0}: No forest found. To prevent errors, the script will exit." -f [datetime]::Now)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
         $object = New-Object -TypeName PSObject -Property @{
@@ -326,36 +326,36 @@ Function Get-AdSettings {
         Return $object
     }
 
-    $message = ("{0}: Running Get-ADDomain." -f (Get-Date -Format s))
+    $message = ("{0}: Running Get-ADDomain." -f [datetime]::Now)
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
     Try {
         $domain = Get-ADDomain @commandParams
     }
     Catch {
-        $message = ("{0}: Running Get-ADDomain failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+        $message = ("{0}: Running Get-ADDomain failed: {1}" -f [datetime]::Now, $_.Exception.Message)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
     }
 
-    $message = ("{0}: Running Get-ADDomainController." -f (Get-Date -Format s))
+    $message = ("{0}: Running Get-ADDomainController." -f [datetime]::Now)
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
     Try {
         $domainControllers = Get-ADDomainController @commandParams -Filter * | Select-Object Name, HostName, IPv4Address, ComputerObjectDN, OperatingSystem, Site, IsGlobalCatalog, IsReadOnly, OperationMasterRoles
     }
     Catch {
-        $message = ("{0}: Running Get-ADDomain failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+        $message = ("{0}: Running Get-ADDomain failed: {1}" -f [datetime]::Now, $_.Exception.Message)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
     }
 
-    $message = ("{0}: Attempting to use Get-ADReplicationSubnet." -f (Get-Date -Format s))
+    $message = ("{0}: Attempting to use Get-ADReplicationSubnet." -f [datetime]::Now)
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
     Try {
         $sites = Get-ADReplicationSubnet -Filter * @commandParams
 
         If ($sites) {
-            $message = ("{0}: Found sites, filtering properties." -f (Get-Date -Format s))
+            $message = ("{0}: Found sites, filtering properties." -f [datetime]::Now)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
             $siteList = Foreach ($site in $sites) {
@@ -370,18 +370,18 @@ Function Get-AdSettings {
             }
         }
         Else {
-            $message = ("{0}: No sites found." -f (Get-Date -Format s), $_.Exception.Message)
+            $message = ("{0}: No sites found." -f [datetime]::Now, $_.Exception.Message)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
             $siteList = 'RetrievalFailure'
         }
     }
     Catch {
-        $message = ("{0}: Using Get-ADReplicationSubnet failed: {1}, attempting to use the System.DirectoryServices.ActiveDirectory method." -f (Get-Date -Format s), $_.Exception.Message)
+        $message = ("{0}: Using Get-ADReplicationSubnet failed: {1}, attempting to use the System.DirectoryServices.ActiveDirectory method." -f [datetime]::Now, $_.Exception.Message)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
         If ($OnDomainController) {
-            $message = ("{0}: Running on a DC, attempting to create a directory context object." -f (Get-Date -Format s), $_.Exception.Message)
+            $message = ("{0}: Running on a DC, attempting to create a directory context object." -f [datetime]::Now, $_.Exception.Message)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
             $a = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest", $forest.Name)
@@ -398,7 +398,7 @@ Function Get-AdSettings {
             }
         }
         Else {
-            $message = ("{0}: Not running on a DC, attempting to create a directory context object through Invoke-Command." -f (Get-Date -Format s), $_.Exception.Message)
+            $message = ("{0}: Not running on a DC, attempting to create a directory context object through Invoke-Command." -f [datetime]::Now, $_.Exception.Message)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
             Try {
@@ -409,9 +409,9 @@ Function Get-AdSettings {
                     Foreach ($site in $sites) {
                         $siteObj = New-Object -Type PSObject -Property (
                             @{
-                                "SiteName" = $site.Name;
-                                "SubNets"  = $site.Subnets;
-                                "Servers"  = $Site.Servers;
+                                "SiteName" = $site.Name
+                                "SubNets"  = $site.Subnets
+                                "Servers"  = $Site.Servers
                             }
                         )
                         $siteObj
@@ -419,30 +419,30 @@ Function Get-AdSettings {
                 } -ArgumentList $forest.Name -ErrorAction Stop
             }
             Catch {
-                $message = ("{0}: Running Invoke-Command failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+                $message = ("{0}: Running Invoke-Command failed: {1}" -f [datetime]::Now, $_.Exception.Message)
                 If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
             }
         }
     }
 
-    $message = ("{0}: Running Get-ADObject to get site link properties." -f (Get-Date -Format s))
+    $message = ("{0}: Running Get-ADObject to get site link properties." -f [datetime]::Now)
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
     Try {
         $siteLinks = Get-ADObject @commandParams -Filter 'objectClass -eq "siteLink"' -SearchBase $searchBase -Property Name, Cost, ReplInterval, SiteList | Select-Object Name, SiteList, Cost, ReplInterval
     }
     Catch {
-        $message = ("{0}: Running Get-ADObject failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+        $message = ("{0}: Running Get-ADObject failed: {1}" -f [datetime]::Now, $_.Exception.Message)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
     }
 
-    $message = ("{0}: Running Get-ADTrusts." -f (Get-Date -Format s))
+    $message = ("{0}: Running Get-ADTrusts." -f [datetime]::Now)
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
     Try {
         $trusts = Get-ADTrust @commandParams -Filter * | Select-Object Target, Direction, ForestTransitive, IntraForest, TrustAttributes, SelectiveAuthentication, Authentication, @{Name = "TrustType"; Expression = { [string]$_.TrustType } }
 
-        $message = ("{0}: Assigning trust attributes." -f (Get-Date -Format s))
+        $message = ("{0}: Assigning trust attributes." -f [datetime]::Now)
         If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
         Foreach ($trust in $trusts) {
@@ -460,11 +460,11 @@ Function Get-AdSettings {
         }
     }
     Catch {
-        $message = ("{0}: Running Get-ADTrusts failed: {1}. Attempting to use the System.DirectoryServices.ActiveDirectory method" -f (Get-Date -Format s), $_.Exception.Message)
+        $message = ("{0}: Running Get-ADTrusts failed: {1}. Attempting to use the System.DirectoryServices.ActiveDirectory method" -f [datetime]::Now, $_.Exception.Message)
         If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
         If ($OnDomainController) {
-            $message = ("{0}: Running on a DC, attempting to create a directory context object." -f (Get-Date -Format s), $_.Exception.Message)
+            $message = ("{0}: Running on a DC, attempting to create a directory context object." -f [datetime]::Now, $_.Exception.Message)
             If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
             $a = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest", $forest.Name)
@@ -485,7 +485,7 @@ Function Get-AdSettings {
             }
         }
         Else {
-            $message = ("{0}: Not running on a DC, attempting to create a directory context object through Invoke-Command." -f (Get-Date -Format s), $_.Exception.Message)
+            $message = ("{0}: Not running on a DC, attempting to create a directory context object through Invoke-Command." -f [datetime]::Now, $_.Exception.Message)
             If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
             Try {
@@ -496,13 +496,13 @@ Function Get-AdSettings {
                     Foreach ($trust in $trusts) {
                         $siteObj = New-Object -Type PSObject -Property (
                             @{
-                                "Target"                  = $trust.TargetName;
-                                "Direction"               = $trust.TrustDirection;
-                                "ForestTransitive"        = "Unknown";
-                                "IntraForest"             = "Unknown";
-                                "TrustAttributes"         = "Unknown";
-                                "SelectiveAuthentication" = "Unknown";
-                                "TrustType"               = "Unknown";
+                                "Target"                  = $trust.TargetName
+                                "Direction"               = $trust.TrustDirection
+                                "ForestTransitive"        = "Unknown"
+                                "IntraForest"             = "Unknown"
+                                "TrustAttributes"         = "Unknown"
+                                "SelectiveAuthentication" = "Unknown"
+                                "TrustType"               = "Unknown"
                             }
                         )
                         $siteObj
@@ -510,26 +510,26 @@ Function Get-AdSettings {
                 } -ArgumentList $forest.Name
             }
             Catch {
-                $message = ("{0}: Running Invoke-Command failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+                $message = ("{0}: Running Invoke-Command failed: {1}" -f [datetime]::Now, $_.Exception.Message)
                 If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
             }
         }
     }
 
     If (Get-Command Get-ADReplicationConnection -ErrorAction SilentlyContinue) {
-        $message = ("{0}: Running Get-ADReplicationConnection." -f (Get-Date -Format s))
+        $message = ("{0}: Running Get-ADReplicationConnection." -f [datetime]::Now)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
         Try {
             $allConnections = Get-ADReplicationConnection -ErrorAction Stop
         }
         Catch {
-            $message = ("{0}: Running Get-ADReplicationConnection failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+            $message = ("{0}: Running Get-ADReplicationConnection failed: {1}" -f [datetime]::Now, $_.Exception.Message)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
         }
 
         $replicationConnections = ($allConnections | Where-Object { ($_.Name).Length -lt 36 }) | ForEach-Object {
-            $message = ("{0}: Getting connections for {1}." -f (Get-Date -Format s), $dc.Name)
+            $message = ("{0}: Getting connections for {1}." -f [datetime]::Now, $dc.Name)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
             $connectionObj = New-Object -Type PSObject -Property (
@@ -544,7 +544,7 @@ Function Get-AdSettings {
         }
     }
     Else {
-        $message = ("{0}: The Get-ADReplicationConnection command is not available. Attempting to get data using repadmin." -f (Get-Date -Format s))
+        $message = ("{0}: The Get-ADReplicationConnection command is not available. Attempting to get data using repadmin." -f [datetime]::Now)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
         $repAdminOutput = repadmin /showrepl * /csv | ConvertFrom-CSV
@@ -559,14 +559,14 @@ Function Get-AdSettings {
         }
     }
 
-    $message = ("{0}: Running Get-ADOptionalFeature." -f (Get-Date -Format s))
+    $message = ("{0}: Running Get-ADOptionalFeature." -f [datetime]::Now)
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
     Try {
         $optionalFeatures = Get-ADOptionalFeature @commandParams -Filter * | Select-Object Name, RequiredForestMode, RequiredDomainMode, @{Name = "Status"; Expression = {($_.EnabledScopes.Count -gt 0)}}
     }
     Catch {
-        $message = ("{0}: Running Get-ADOptionalFeature failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+        $message = ("{0}: Running Get-ADOptionalFeature failed: {1}" -f [datetime]::Now, $_.Exception.Message)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
     }
 
@@ -574,7 +574,7 @@ Function Get-AdSettings {
     Switch ($domain.domainMode.value__) {0 {$domainMode = "Windows 2000 Mixed"}; 1 {$domainMode = "Windows 2000 Native"}; 2 {$domainMode = "Windows2003 Interim"}; 3 {$domainMode = "Windows 2003"}; 4 {$domainMode = "Windows 2008"}; 5 {$domainMode = "Windows 2008R2"}; 6 {$domainMode = "Windows 8"}; 7 {$domainMode = "Windows 2012R2"}}
     If (-NOT($forestMode)) {$forestMode = $forest.ForestMode}
 
-    $message = ("{0}: Assigning properties to `$object." -f (Get-Date -Format s))
+    $message = ("{0}: Assigning properties to `$object." -f [datetime]::Now)
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
     $object = New-Object -TypeName PSObject -Property @{
@@ -609,18 +609,18 @@ Function Get-DcSettings {
     )
 
     Foreach ($dc in $domainControllers) {
-        $message = ("{0}: Running Get-ADComputer for {1}." -f (Get-Date -Format s), $dc.HostName)
+        $message = ("{0}: Running Get-ADComputer for {1}." -f [datetime]::Now, $dc.HostName)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
         Try {
             $description = Get-ADComputer @commandParams -Identity $dc.ComputerObjectDN -Properties 'Description' | Select-Object -ExpandProperty Description -ErrorAction SilentlyContinue
         }
         Catch {
-            $message = ("{0}: Running Get-ADComputer failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+            $message = ("{0}: Running Get-ADComputer failed: {1}" -f [datetime]::Now, $_.Exception.Message)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
         }
 
-        $message = ("{0}: Adding description property to {1}." -f (Get-Date -Format s), $dc.HostName)
+        $message = ("{0}: Adding description property to {1}." -f [datetime]::Now, $dc.HostName)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
         If ($description) {
@@ -630,18 +630,18 @@ Function Get-DcSettings {
             $dc | Add-Member -MemberType NoteProperty -Name Description -Value 'No description found in Active Directory.' -Force
         }
 
-        $message = ("{0}: Running Resolve-DnsName for {1}." -f (Get-Date -Format s), $dc.HostName)
+        $message = ("{0}: Running Resolve-DnsName for {1}." -f [datetime]::Now, $dc.HostName)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
         Try {
             $ipV4Address = Resolve-DnsName -Name $dc.Hostname -Server $hostname | Select-Object @{Name = "IPv4Address"; Expression = {$_.IPAddress}} | Select-Object -ExpandProperty IPv4Address
         }
         Catch {
-            $message = ("{0}: Running Resolve-DnsName failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+            $message = ("{0}: Running Resolve-DnsName failed: {1}" -f [datetime]::Now, $_.Exception.Message)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
         }
 
-        $message = ("{0}: Adding IpV4Address property to {1}." -f (Get-Date -Format s), $dc.HostName)
+        $message = ("{0}: Adding IpV4Address property to {1}." -f [datetime]::Now, $dc.HostName)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
         If ($ipV4Address) {
@@ -661,14 +661,14 @@ Function Get-DhcpSettings {
         [string]$SearchBase,
         [string]$LogFile
     )
-    $message = ("{0}: Running Get-ADObject to get DHCP servers." -f (Get-Date -Format s))
+    $message = ("{0}: Running Get-ADObject to get DHCP servers." -f [datetime]::Now)
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
     Try {
         $authorizedDHCPServers = Get-ADObject @commandParams -Filter 'objectClass -eq "dhcpclass" -AND name -ne "dhcproot"' -SearchBase $searchBase
     }
     Catch {
-        $message = ("{0}: Running Get-ADObject failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+        $message = ("{0}: Running Get-ADObject failed: {1}" -f [datetime]::Now, $_.Exception.Message)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
     }
 
@@ -681,7 +681,7 @@ Function Get-GpoSettings {
         [string]$Server,
         [string]$LogFile
     )
-    $message = ("{0}: Running Get-GPO to get list of GPOs." -f (Get-Date -Format s))
+    $message = ("{0}: Running Get-GPO to get list of GPOs." -f [datetime]::Now)
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
     If ($OnDomainController) {
@@ -689,20 +689,20 @@ Function Get-GpoSettings {
             $gpoList = Get-GPO -Server $Server -All -ErrorAction Stop
         }
         Catch {
-            $message = ("{0}: Running Get-GPO failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+            $message = ("{0}: Running Get-GPO failed: {1}" -f [datetime]::Now, $_.Exception.Message)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
             Return
         }
 
-        $message = ("{0}: Running Get-GpoReportData to get GPO properties." -f (Get-Date -Format s))
+        $message = ("{0}: Running Get-GpoReportData to get GPO properties." -f [datetime]::Now)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
         Try {
             $gpoCsv = Get-GpoReportData -Hostname $Server -GpoList $gpoList -LogFile $LogFile -ErrorAction Stop
         }
         Catch {
-            $message = ("{0}: Running Get-GpoReportData failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+            $message = ("{0}: Running Get-GpoReportData failed: {1}" -f [datetime]::Now, $_.Exception.Message)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
             Return
@@ -713,18 +713,18 @@ Function Get-GpoSettings {
             $gpoList = Invoke-Command -Credential $cred -ComputerName $Server -ScriptBlock {$Server = $args[0]; Get-GPO -Server $Server -All} -ArgumentList $Server -ErrorAction Stop
         }
         Catch {
-            $message = ("{0}: Running Invoke-Command failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+            $message = ("{0}: Running Invoke-Command failed: {1}" -f [datetime]::Now, $_.Exception.Message)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
         }
 
-        $message = ("{0}: Running Invoke-Command to get GPO properties." -f (Get-Date -Format s))
+        $message = ("{0}: Running Invoke-Command to get GPO properties." -f [datetime]::Now)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
         Try {
             $gpoCsv = Invoke-Command -Credential $cred -ComputerName $Server -ScriptBlock {Param ($FunctionCode, $Server, $gpoList, $LogFile); . Invoke-Expression $FunctionCode; Get-GpoReportData -Hostname $Server -GpoList $gpoList -LogFile $LogFile} -ArgumentList $code, $Server, $gpoList, $LogFile
         }
         Catch {
-            $message = ("{0}: Running Invoke-Command failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+            $message = ("{0}: Running Invoke-Command failed: {1}" -f [datetime]::Now, $_.Exception.Message)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
         }
     }
@@ -747,14 +747,14 @@ Switch ($OnDomainController) {
         $logDirPath = "$([System.Environment]::SystemDirectory)" # Directory, into which the log file will be written.
         $logFile = "$logDirPath\configsource-get_adproperties-collection-$hostname.log"
 
-        $message = ("{0}: Beginning script to get Active Directory properties. This script is running on a domain controller." -f (Get-Date -Format s))
+        $message = ("{0}: Beginning script to get Active Directory properties. This script is running on a domain controller." -f [datetime]::Now)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile} Else {$message | Out-File -FilePath $logFile}
 
         $searchBase = (Get-ADRootDSE -Server $hostname).ConfigurationNamingContext
 
         $commandParams = @{
-            Server      = $hostname;
-            ErrorAction = 'Stop';
+            Server      = $hostname
+            ErrorAction = 'Stop'
         }
     }
     $false {
@@ -773,23 +773,23 @@ Switch ($OnDomainController) {
 
         $logFile = "$logDirPath\configsource-get_adproperties-collection-$hostname.log"
 
-        $message = ("{0}: Beginning script to get Active Directory properties. This script is not running on a domain controller." -f (Get-Date -Format s))
+        $message = ("{0}: Beginning script to get Active Directory properties. This script is not running on a domain controller." -f [datetime]::Now)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile} Else {$message | Out-File -FilePath $logFile}
 
         $commandParams = @{
-            Credential  = $cred;
-            Server      = $hostname;
-            ErrorAction = 'Stop';
+            Credential  = $cred
+            Server      = $hostname
+            ErrorAction = 'Stop'
         }
 
         $searchBase = Invoke-Command -Credential $cred -ComputerName $hostname -ScriptBlock {$server = $args[0]; (Get-ADRootDSE -Server $server).ConfigurationNamingContext} -ArgumentList $hostname
 
-        $message = ("{0}: Checking TrustedHosts file." -f (Get-Date -Format s))
+        $message = ("{0}: Checking TrustedHosts file." -f [datetime]::Now)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
         # Add the target device to TrustedHosts.
         If (((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -notmatch $hostname) -and ((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -ne "*") -and ($hostname -ne "127.0.0.1")) {
-            $message = ("{0}: Adding {1} to TrustedHosts." -f (Get-Date -Format s), $hostname)
+            $message = ("{0}: Adding {1} to TrustedHosts." -f [datetime]::Now, $hostname)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
             Try {
@@ -803,7 +803,7 @@ Switch ($OnDomainController) {
             }
         }
 
-        $message = ("{0}: Checking for the adConfig file on {1}." -f (Get-Date -Format s), $hostname)
+        $message = ("{0}: Checking for the adConfig file on {1}." -f [datetime]::Now, $hostname)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
         $backup = Invoke-Command -ComputerName $hostname -Credential $cred -ScriptBlock {
@@ -811,7 +811,7 @@ Switch ($OnDomainController) {
         }
 
         If (($backup) -and ($backup -notmatch "Error:")) {
-            $message = ("{0}: Retrieved Active Directory config content, returning it." -f (Get-Date -Format s), $hostname)
+            $message = ("{0}: Retrieved Active Directory config content, returning it." -f [datetime]::Now, $hostname)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
             $backup
@@ -819,21 +819,21 @@ Switch ($OnDomainController) {
             Exit 0
         }
         ElseIf (($backup) -and ($backup -match "Error:")) {
-            $message = ("{0}: {1} reported an error retrieving Active Directory config content: {1}." -f (Get-Date -Format s), $backup)
+            $message = ("{0}: {1} reported an error retrieving Active Directory config content: {1}." -f [datetime]::Now, $backup)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
         }
         ElseIf (-NOT($backup)) {
-            $message = ("{0}: No content or error retrieved." -f (Get-Date -Format s), $hostname)
+            $message = ("{0}: No content or error retrieved." -f [datetime]::Now, $hostname)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
         }
 
-        $message = ("{0}: Attempting to retrieve live Active Directory config." -f (Get-Date -Format s))
+        $message = ("{0}: Attempting to retrieve live Active Directory config." -f [datetime]::Now)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
     }
 }
 
 #region Running functions
-$message = ("{0}: Calling the Get-AdSettings function." -f (Get-Date -Format s))
+$message = ("{0}: Calling the Get-AdSettings function." -f [datetime]::Now)
 If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
 If ($OnDomainController) {
@@ -843,17 +843,17 @@ Else {
     New-Variable -Name backup -Value (Get-AdSettings -SearchBase $searchBase -LogFile $logFile) -Scope Script -Force
 }
 
-$message = ("{0}: Calling the Get-DcSettings function." -f (Get-Date -Format s))
+$message = ("{0}: Calling the Get-DcSettings function." -f [datetime]::Now)
 If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
 Get-DcSettings -LogFile $logFile -DomainControllers $backup.AllDomainControllers
 
-$message = ("{0}: Calling the Get-DhcpSettings function." -f (Get-Date -Format s))
+$message = ("{0}: Calling the Get-DhcpSettings function." -f [datetime]::Now)
 If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
 Get-DhcpSettings -SearchBase $searchBase -LogFile $logFile
 
-$message = ("{0}: Calling the Get-GpoSettings function." -f (Get-Date -Format s))
+$message = ("{0}: Calling the Get-GpoSettings function." -f [datetime]::Now)
 If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
 If ($OnDomainController) {
@@ -865,7 +865,7 @@ Else {
 #endregion Running functions
 
 If ($backup.ForestName) {
-    $message = ("{0}: Sending the backup to {1}." -f (Get-Date -Format s), "$([System.Environment]::SystemDirectory)\adConfig.json")
+    $message = ("{0}: Sending the backup to {1}." -f [datetime]::Now, "$([System.Environment]::SystemDirectory)\adConfig.json")
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
     $backup | ConvertTo-Json | Out-File -FilePath "$([System.Environment]::SystemDirectory)\adConfig.json" -Force
@@ -874,7 +874,7 @@ If ($backup.ForestName) {
     Exit 0
 }
 Else {
-    $message = ("{0}: An improper (or no) backup, was collected." -f (Get-Date -Format s), "$([System.Environment]::SystemDirectory)\adConfig.json")
+    $message = ("{0}: An improper (or no) backup, was collected." -f [datetime]::Now, "$([System.Environment]::SystemDirectory)\adConfig.json")
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
     Exit 1
