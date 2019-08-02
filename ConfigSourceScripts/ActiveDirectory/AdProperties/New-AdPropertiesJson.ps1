@@ -32,7 +32,7 @@ param (
     [System.Management.Automation.PSCredential]$Credential
 )
 
-$message = ("{0}: Checking if the script is running on a domain controller.." -f [datetime]::Now)
+$message = ("{0}: Checking if the script is running on a domain controller." -f [datetime]::Now)
 If ($PSBoundParameters['Verbose']) {Write-Verbose $message}
 
 $OnDomainController = If (Get-WmiObject -Class win32_service -Filter "Name='ADWS' OR Name='NTDS'") {$true} Else {$False} # Used by the script, to determine if we need to find a DC.
