@@ -10,6 +10,7 @@
         V1.0.0.2 date: 2 April 2019
             - Added replication links to output.
             - Updated in-line documentation.
+        V1.0.0.3 date: 2 August 2019
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/ActiveDirectory/AdProperties
     .PARAMETER DcFqdn
@@ -439,32 +440,32 @@ Function Get-AdSettings {
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
     Try {
-        $trusts = Get-ADTrust @commandParams -Filter * | Select-Object Target, Direction, ForestTransitive, IntraForest, TrustAttributes, SelectiveAuthentication, Authentication, @{Name = "TrustType"; Expression = {[string]$_.TrustType}}
+        $trusts = Get-ADTrust @commandParams -Filter * | Select-Object Target, Direction, ForestTransitive, IntraForest, TrustAttributes, SelectiveAuthentication, Authentication, @{Name = "TrustType"; Expression = { [string]$_.TrustType } }
 
         $message = ("{0}: Assigning trust attributes." -f (Get-Date -Format s))
-        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+        If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
         Foreach ($trust in $trusts) {
             Switch ($trust.TrustAttributes) {
-                1 {$trust.TrustAttributes = "Non-Transitive"}
-                2 {$trust.TrustAttributes = "Uplevel clients only (Windows 2000 or newer"}
-                4 {$trust.TrustAttributes = "Quarantined Domain (External)"}
-                8 {$trust.TrustAttributes = "Forest Trust"}
-                16 {$trust.TrustAttributes = "Cross-Organizational Trust (Selective Authentication)"}
-                32 {$trust.TrustAttributes = "Intra-Forest Trust (trust within the forest)"}
-                64 {$trust.TrustAttributes = "Inter-Forest Trust (trust with another forest)"}
-                Default {$trust.TrustAttributes = "Unknown value. Trust type: $PSItem"}
+                1 { $trust.TrustAttributes = "Non-Transitive" }
+                2 { $trust.TrustAttributes = "Uplevel clients only (Windows 2000 or newer" }
+                4 { $trust.TrustAttributes = "Quarantined Domain (External)" }
+                8 { $trust.TrustAttributes = "Forest Trust" }
+                16 { $trust.TrustAttributes = "Cross-Organizational Trust (Selective Authentication)" }
+                32 { $trust.TrustAttributes = "Intra-Forest Trust (trust within the forest)" }
+                64 { $trust.TrustAttributes = "Inter-Forest Trust (trust with another forest)" }
+                Default { $trust.TrustAttributes = "Unknown value. Trust type: $PSItem" }
             }
-            If ($trust.SelectiveAuthentication -eq $False) {$trust.Authentication = "Forest Wide"} Else {$trust.Authentication = "Selective Authentication"}
+            If ($trust.SelectiveAuthentication -eq $False) { $trust.Authentication = "Forest Wide" } Else { $trust.Authentication = "Selective Authentication" }
         }
     }
     Catch {
         $message = ("{0}: Running Get-ADTrusts failed: {1}. Attempting to use the System.DirectoryServices.ActiveDirectory method" -f (Get-Date -Format s), $_.Exception.Message)
-        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+        If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
         If ($OnDomainController) {
             $message = ("{0}: Running on a DC, attempting to create a directory context object." -f (Get-Date -Format s), $_.Exception.Message)
-            If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+            If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
             $a = New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext("Forest", $forest.Name)
             [array]$b = ([System.DirectoryServices.ActiveDirectory.Forest]::GetForest($a)).GetAllTrustRelationships()
@@ -485,7 +486,7 @@ Function Get-AdSettings {
         }
         Else {
             $message = ("{0}: Not running on a DC, attempting to create a directory context object through Invoke-Command." -f (Get-Date -Format s), $_.Exception.Message)
-            If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+            If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
             Try {
                 $trusts = Invoke-Command -Credential $cred -ComputerName $hostname -ScriptBlock {
@@ -510,40 +511,53 @@ Function Get-AdSettings {
             }
             Catch {
                 $message = ("{0}: Running Invoke-Command failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
-                If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+                If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
             }
         }
     }
-    <#
-    Commented out for now. Maybe we'll add this data to the flexible asset later.
-    $message = ("{0}: Running Get-ADReplicationConnection." -f (Get-Date -Format s))
-    If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
-    Try {
-        $replicationConnections = Foreach ($dc in $domaincontrollers) {
+    If (Get-Command Get-ADReplicationConnection -ErrorAction SilentlyContinue) {
+        $message = ("{0}: Running Get-ADReplicationConnection." -f (Get-Date -Format s))
+        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+
+        Try {
+            $allConnections = Get-ADReplicationConnection -ErrorAction Stop
+        }
+        Catch {
+            $message = ("{0}: Running Get-ADReplicationConnection failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
+            If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+        }
+
+        $replicationConnections = ($allConnections | Where-Object { ($_.Name).Length -lt 36 }) | ForEach-Object {
             $message = ("{0}: Getting connections for {1}." -f (Get-Date -Format s), $dc.Name)
             If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
-            $allConnections = Get-ADReplicationConnection -Credential $cred -Server $dc.Name -Filter * -ErrorAction Stop
+            $connectionObj = New-Object -Type PSObject -Property (
+                @{
+                    "Name"          = $_.Name
+                    "ReplicateFrom" = $_.ReplicateFromDirectoryServer
+                    "ReplicateTo"   = $_.ReplicateToDirectoryServer
+                    "AutoGenerated" = $_.AutoGenerated
+                }
+            )
+            $connectionObj
+        }
+    }
+    Else {
+        $message = ("{0}: The Get-ADReplicationConnection command is not available. Attempting to get data using repadmin." -f (Get-Date -Format s))
+        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
-            Foreach ($connection in ($allConnections | Where-Object {($_.Name).Length -lt 36})) {
-                $connectionObj = New-Object -Type PSObject -Property (
-                    @{
-                        "Name"          = $connection.Name;
-                        "ReplicateFrom" = $connection.ReplicateFromDirectoryServer;
-                        "ReplicateTo"   = $connection.ReplicateToDirectoryServer
-                        "AutoGenerated" = $connection.AutoGenerated;
-                    }
-                )
-                $connectionObj
+        $repAdminOutput = repadmin /showrepl * /csv | ConvertFrom-CSV
+
+        $replicationConnections = $repAdminOutput | ForEach-Object {
+            @{
+                "Name"          = "Unknown"
+                "ReplicateFrom" = "$($_.'Source DSA')"
+                "ReplicateTo"   = "$($_.'Destination DSA')"
+                "AutoGenerated" = "Unknown"
             }
         }
     }
-    Catch {
-        $message = ("{0}: Running Get-ADReplicationConnection failed: {1}" -f (Get-Date -Format s), $_.Exception.Message)
-        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
-    }
-    #>
 
     $message = ("{0}: Running Get-ADOptionalFeature." -f (Get-Date -Format s))
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
@@ -581,7 +595,7 @@ Function Get-AdSettings {
         SiteList              = @($siteList)
         SiteLinks             = @($siteLinks)
         Trusts                = @($trusts)
-        #ReplicationLinks      = @($replicationConnections) # Commented out for now. Maybe we'll add this data to the flexible asset later.
+        ReplicationLinks      = @($replicationConnections)
         OptionalFeatures      = @($optionalFeatures)
     }
 
