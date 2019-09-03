@@ -6,7 +6,7 @@
         V1.0.0.0 date: 3 September 2019
             - Initial release.
     .LINK
-        
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Reports/ThresholdReport-Script.ps1
     .PARAMETER AccessId
         Mandatory parameter. Represents the access ID used to connected to LogicMonitor's REST API.
     .PARAMETER AccessKey
@@ -29,6 +29,10 @@
         PS C:\> DeviceThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -GroupId 17 -BlockLogging -Verbose
 
         In this example, the script gets all devices from LogicMonitor, in group 17 and generates a threshold report for them. Verbose output is written only to the console host.
+    .EXAMPLE
+        PS C:\> DeviceThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -GroupId 17 -OutputPath C:\temp
+
+        In this example, the script gets all devices from LogicMonitor, in group 17 and generates a threshold report for them. Output is written to the Windows Application log with the default event source. The results are written to C:\temp.
 #>
 [CmdletBinding()]
 Param (
