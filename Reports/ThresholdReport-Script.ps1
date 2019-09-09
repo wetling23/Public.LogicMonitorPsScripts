@@ -45,7 +45,7 @@ Param (
     [Parameter(Mandatory)]
     [string]$AccountName,
 
-    [string]$GroupId,
+    [int64]$GroupId,
 
     [ValidateScript( {
             If (-Not ($_ | Test-Path) ) {
