@@ -35,7 +35,7 @@
         Represents the DNS name or IP of the desired mail relay.
     .PARAMETER SenderEmail
         Represnts the "from" e-mail address for the script's output.
-    .PARAMETER ReportRecipients
+    .PARAMETER ReportRecipient
         Represents the comma-separated list of e-mail addresses, to which the report will be sent.
     .PARAMETER CollectorCount
         Default value is 50. Represents the number of collectors, for which, and upgrade will be scheduled.
@@ -79,7 +79,7 @@ Param (
     [string]$SenderEmail,
 
     [Parameter(Mandatory = $True)]
-    [string]$ReportRecipients,
+    [string[]]$ReportRecipient,
 
     [int]$CollectorCount = 50,
 
@@ -156,7 +156,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
         If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
 
         Try {
-            Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Failure: Collector Upgrade-Script Failure (version retrieval)' -To ($ReportRecipients -split ",") -Body ("Consult the Windows Application log on {1} for details." -f $env:COMPUTERNAME)
+            Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Failure: Collector Upgrade-Script Failure (version retrieval)' -To $ReportRecipient -Body ("Consult the Windows Application log on {1} for details." -f $env:COMPUTERNAME)
         }
         Catch {
             $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipients, $_.Exception.Message)
@@ -188,7 +188,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
         If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
 
         Try {
-            Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Failure: Collector Upgrade-Script Failure (collector retrieval)' -To ($ReportRecipients -split ",") -Body ("Consult the Windows Application log on {1} for details." -f $env:COMPUTERNAME)
+            Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Failure: Collector Upgrade-Script Failure (collector retrieval)' -To $ReportRecipient -Body ("Consult the Windows Application log on {1} for details." -f $env:COMPUTERNAME)
         }
         Catch {
             $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipients, $_.Exception.Message)
@@ -203,7 +203,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
 
     # Sending pre-upgrade notification to the e-mail recipients.
     Try {
-        Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Information: Collector Upgrade-Script beginning' -To ($ReportRecipients -split ",") -Body ("The following collectors are being upgraded:`n{0}." -f ($($downlevelCollectors.hostname) -join ', '))
+        Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Information: Collector Upgrade-Script beginning' -To $ReportRecipient -Body ("The following collectors are being upgraded:`n{0}." -f ($($downlevelCollectors.hostname) -join ', '))
     }
     Catch {
         $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipients, $_.Exception.Message)
@@ -258,7 +258,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     $reportContent = Get-RelevantHistory
 
     Try {
-        Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Success: Collector Upgrade-Script' -To ($ReportRecipients -split ",") `
+        Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Success: Collector Upgrade-Script' -To $ReportRecipients `
             -Body (($reportContent | Select-Object @{label = 'CollectorId'; expression = { $_.CollectorId } }, @{label = 'Status'; expression = { $_.Status } }, @{label = 'HappenedOn'; expression = { $_.HappenedOn } }, @{label = 'Notes'; expression = { $_.Notes } } | ConvertTo-Html -Head $header -Property 'CollectorId', 'Status', 'HappenedOn', 'Notes') | Out-String)
 
         Exit 0
