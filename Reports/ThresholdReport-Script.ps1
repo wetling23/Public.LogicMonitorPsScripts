@@ -48,10 +48,10 @@ Param (
     [int64]$GroupId,
 
     [ValidateScript( {
-            If (-Not ($_ | Test-Path) ) {
+            If (-NOT ($_ | Test-Path) ) {
                 Throw "Folder does not exist."
             }
-            If (-Not ($_ | Test-Path -PathType Container) ) {
+            If (-NOT ($_ | Test-Path -PathType Container) ) {
                 Throw "The Path argument must be a folder."
             }
             Return $true
@@ -107,7 +107,7 @@ If ($GroupId) {
     $message = ("{0}: Filtering for devices in group {1}." -f [datetime]::Now, $GroupId)
     If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
 
-    $devices = $allLmDevices | Where-Object { $GroupId -in ($_.'system.deviceGroupId').Split(',') }
+    $devices = $allLmDevices | Where-Object { $GroupId -in ($_.hostGroupIds).Split(',') }
 }
 Else {
     $devices = $allLmDevices
@@ -117,7 +117,7 @@ Else {
 
 Foreach ($device in $devices) {
     $progressCounter++
-    $message = ("{0}: Working on {0}. This is device {1} of {2}." -f [datetime]::Now, $device.displayName, $progressCounter, $filteredDeviceList.count)
+    $message = ("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++`r`n{0}: Working on {0}. This is device {1} of {2}." -f [datetime]::Now, $device.displayName, $progressCounter, $filteredDeviceList.count)
     If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
 
     $resourcePath = "/device/devices/$($device.id)/instances"
@@ -224,6 +224,9 @@ If ($OutputPath) {
     If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
 
     Exit 0
+}
+Else {
+    $group
 }
 
 Exit 0
