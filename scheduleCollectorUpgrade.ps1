@@ -17,7 +17,7 @@
         V1.0.0.5 date: 2 November 2018
             - Added logging output.
         V1.0.0.6 date: 4 December 2018
-            - Fixed bug in how we use $ReportRecipients.
+            - Fixed bug in how we use $ReportRecipient.
         V1.0.0.7 date: 5 March 2019
             - Fixed bug with newest-version identification.
         V1.0.0.8 date: 8 April 2019
@@ -159,7 +159,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
             Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Failure: Collector Upgrade-Script Failure (version retrieval)' -To $ReportRecipient -Body ("Consult the Windows Application log on {1} for details." -f $env:COMPUTERNAME)
         }
         Catch {
-            $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipients, $_.Exception.Message)
+            $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipient, $_.Exception.Message)
             If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417 }
 
             Exit 1
@@ -184,21 +184,23 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
         If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
     }
     Else {
-        $message = ("{0}: Unable to identify any downlevel collectors. No further action to take." -f (Get-Date -Format s), $downlevelCollectors.Count)
+        $message = ("{0}: Unable to identify any downlevel collectors. No further action to take." -f (Get-Date -Format s))
         If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
 
         Try {
-            Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Failure: Collector Upgrade-Script Failure (collector retrieval)' -To $ReportRecipient -Body ("Consult the Windows Application log on {1} for details." -f $env:COMPUTERNAME)
+            Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Failure: Collector Upgrade-Script Failure (collector retrieval)' -To $ReportRecipient -Body ("Consult the Windows Application log on {0} for details." -f $env:COMPUTERNAME)
+
+            Exit 0
         }
         Catch {
-            $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipients, $_.Exception.Message)
+            $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipient, $_.Exception.Message)
             If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417 }
 
             Exit 1
         }
     }
 
-    $message = ("{0}: Attempting to send a pre-upgrade e-mail to {1}." -f (Get-Date -Format s), $ReportRecipients)
+    $message = ("{0}: Attempting to send a pre-upgrade e-mail to {1}." -f (Get-Date -Format s), ($ReportRecipient -join ', '))
     If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
 
     # Sending pre-upgrade notification to the e-mail recipients.
@@ -206,7 +208,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
         Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Information: Collector Upgrade-Script beginning' -To $ReportRecipient -Body ("The following collectors are being upgraded:`n{0}." -f ($($downlevelCollectors.hostname) -join ', '))
     }
     Catch {
-        $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipients, $_.Exception.Message)
+        $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipient, $_.Exception.Message)
         If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417 }
 
         Exit 1
@@ -258,13 +260,13 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     $reportContent = Get-RelevantHistory
 
     Try {
-        Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Success: Collector Upgrade-Script' -To $ReportRecipients `
+        Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Success: Collector Upgrade-Script' -To $ReportRecipient `
             -Body (($reportContent | Select-Object @{label = 'CollectorId'; expression = { $_.CollectorId } }, @{label = 'Status'; expression = { $_.Status } }, @{label = 'HappenedOn'; expression = { $_.HappenedOn } }, @{label = 'Notes'; expression = { $_.Notes } } | ConvertTo-Html -Head $header -Property 'CollectorId', 'Status', 'HappenedOn', 'Notes') | Out-String)
 
         Exit 0
     }
     Catch {
-        $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipients, $_.Exception.Message)
+        $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipient, $_.Exception.Message)
         If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417 }
 
         Exit 1
