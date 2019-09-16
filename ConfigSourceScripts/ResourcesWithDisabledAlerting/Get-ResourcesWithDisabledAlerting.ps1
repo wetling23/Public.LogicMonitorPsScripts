@@ -1,3 +1,13 @@
+<#
+    .DESCRIPTION
+        Using the LogicMonitor API, retrieves resources (devices/websites), for which alerting is disabled.
+    .NOTES
+        Author: Mike Hashemi
+        V1.0.0.0 date: 16 September 2019
+            - Initial release
+    .LINK
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/ResourcesWithDisabledAlerting
+#>
 Function Get-ResourceAlertingDisabled {
     <#
         .DESCRIPTION
@@ -6,8 +16,6 @@ Function Get-ResourceAlertingDisabled {
             Author: Mike Hashemi
             V1.0.0.0 date: 16 September 2019
                 - Initial release
-        .LINK
-            
     #>
     [CmdletBinding()]
     param(
