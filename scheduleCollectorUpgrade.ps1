@@ -23,6 +23,7 @@
         V1.0.0.8 date: 8 April 2019
             - Fixed another bug with newest-version identification.
         V1.0.0.9 date: 9 September 2019
+        V1.0.0.10 date: 25 September 2019
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts
     .PARAMETER AccessId
