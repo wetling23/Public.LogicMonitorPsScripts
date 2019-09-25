@@ -95,8 +95,10 @@ Param (
 
 $message = ("{0}: Beginning {1}." -f (Get-Date -Format s), $MyInvocation.MyCommand)
 If ($BlockLogging) { Write-Host $message } Else { Write-Host $message ; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
+
 Try {
     # Initialize variables.
+    $timer = [system.diagnostics.stopwatch]::startNew()
     [timespan]$timeout = New-TimeSpan -Minutes $InstallWaitTime
     $header = @"
 <style>
@@ -263,17 +265,26 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
         Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Success: Collector Upgrade-Script' -To $ReportRecipient `
             -Body (($reportContent | Select-Object @{label = 'CollectorId'; expression = { $_.CollectorId } }, @{label = 'Status'; expression = { $_.Status } }, @{label = 'HappenedOn'; expression = { $_.HappenedOn } }, @{label = 'Notes'; expression = { $_.Notes } } | ConvertTo-Html -Head $header -Property 'CollectorId', 'Status', 'HappenedOn', 'Notes') | Out-String)
 
+        $timer.Stop()
+
+        $message = ("{0}: {1} completed successfully. The script took {2}:{3}:{4} (hours:minutes:seconds) to run." -f [datetime]::Now, $MyInvocation.MyCommand, $timer.Elapsed.Hour, $timer.Elapsed.Minutes, $timer.Elapsed.Seconds)
+        If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
         Exit 0
     }
     Catch {
-        $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipient, $_.Exception.Message)
+        $timer.Stop()
+
+        $message = ("{0}: Unexpected error sending the e-mail message to {1}. The script took {2}:{3}:{4} (hours:minutes:seconds) to run. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipient, $timer.Elapsed.Hour, $timer.Elapsed.Minutes, $timer.Elapsed.Seconds, $_.Exception.Message)
         If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417 }
 
         Exit 1
     }
 }
 Catch {
-    $message = ("{0}: Unexpected error somewhere in {1}. The specific error is: {2}" -f (Get-Date -Format s), $MyInvocation.MyCommand, $_.Exception.Message)
+    $timer.Stop()
+
+    $message = ("{0}: Unexpected error somewhere in {1}, which ran for {2}:{3}:{4} (hours:minutes:seconds). The specific error is: {5}" -f (Get-Date -Format s), $MyInvocation.MyCommand, $timer.Elapsed.Hour, $timer.Elapsed.Minutes, $timer.Elapsed.Seconds, $_.Exception.Message)
     If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417 }
 
     Exit 1
