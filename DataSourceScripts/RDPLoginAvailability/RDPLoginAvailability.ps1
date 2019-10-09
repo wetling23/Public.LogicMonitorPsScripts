@@ -123,13 +123,13 @@ $response = Invoke-Command -ComputerName $computerName -Credential $cred -Script
         }
         Process {
             If (-NOT(Test-Connection $ComputerName -Quiet -Count 1)) {
-                $Script:message += ("{0}: Unable to contact $ComputerName. Please verify its network connectivity and try again.`n" -f [datetime]::Now)
+                $Script:message += ("{0}: Unable to contact $ComputerName. Please verify its network connectivity and try again.`r`n" -f [datetime]::Now)
 
                 Return "Error"
             }
             If ([bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")) {
                 #check if user is admin, otherwise no registry work can be done
-                $Script:message += ("{0}: Verified that we are running as an admin.`n" -f [datetime]::Now)
+                $Script:message += ("{0}: Verified that we are running as an admin.`r`n" -f [datetime]::Now)
 
                 #the following registry key is necessary to avoid the error 5 access is denied error
                 $LMtype = [Microsoft.Win32.RegistryHive]::LocalMachine
@@ -144,15 +144,15 @@ $response = Invoke-Command -ComputerName $computerName -Credential $cred -Script
                 $LMRegKey.Dispose()
             }
             Else {
-                $Script:message += ("{0}: Verified that we are not running as an admin.`n" -f [datetime]::Now)
+                $Script:message += ("{0}: Verified that we are not running as an admin.`r`n" -f [datetime]::Now)
             }
 
-            $Script:message += ("{0}: Running qwinsta against {1}.`n" -f [datetime]::Now, $ComputerName)
+            $Script:message += ("{0}: Running qwinsta against {1}.`r`n" -f [datetime]::Now, $ComputerName)
 
             $result = qwinsta /server:$ComputerName
 
             If ($result) {
-                $Script:message += ("{0}: Found sessions.`n" -f [datetime]::Now)
+                $Script:message += ("{0}: Found sessions.`r`n" -f [datetime]::Now)
 
                 ForEach ($line in $result[1..$result.count]) {
                     #avoiding the line 0, don't want the headers
@@ -187,7 +187,7 @@ $response = Invoke-Command -ComputerName $computerName -Credential $cred -Script
                 $result
             }
             Else {
-                $Script:message += ("{0}: Unknown error, cannot retrieve logged on users.`n" -f [datetime]::Now)
+                $Script:message += ("{0}: Unknown error, cannot retrieve logged on users.`r`n" -f [datetime]::Now)
             }
         }
         End {
@@ -201,7 +201,7 @@ $response = Invoke-Command -ComputerName $computerName -Credential $cred -Script
             }
             Else {
                 If (!($Quiet)) {
-                    $Script:message += "{0}: No active sessions.`n" -f [datetime]::Now
+                    $Script:message += "{0}: No active sessions.`r`n" -f [datetime]::Now
                 }
                 Return $false
             }
@@ -257,7 +257,7 @@ $response = Invoke-Command -ComputerName $computerName -Credential $cred -Script
         Begin { }
         Process {
             If (-NOT(Test-Connection $ComputerName -Quiet -Count 1)) {
-                $Script:message += ("{0}: Unable to contact {1}. Please verify its network connectivity and try again.`n" -f [datetime]::Now, $ComputerName)
+                $Script:message += ("{0}: Unable to contact {1}. Please verify its network connectivity and try again.`r`n" -f [datetime]::Now, $ComputerName)
 
                 Return "Error"
             }
@@ -276,7 +276,7 @@ $response = Invoke-Command -ComputerName $computerName -Credential $cred -Script
                 $LMRegKey.Dispose()
             }
 
-            $Script:message += ("{0}: Running rwinsta to log off the user with session ID {1}.`n" -f [datetime]::Now, $ID)
+            $Script:message += ("{0}: Running rwinsta to log off the user with session ID {1}.`r`n" -f [datetime]::Now, $ID)
 
             $script:message += rwinsta.exe /server:$ComputerName $ID /V
         }
@@ -284,18 +284,18 @@ $response = Invoke-Command -ComputerName $computerName -Credential $cred -Script
     }
 
     $message = @"
-{0}: Getting active RDP sessions on {1}. We will look for {2}.`n
+{0}: Getting active RDP sessions on {1}. We will look for {2}.`r`n
 "@ -f [datetime]::Now, $ComputerName, $UserName
     Set-Variable -Name message -Option AllScope
 
     $sessions = Get-ActiveSessions -ComputerName $ComputerName
 
     If ($sessions.UserName) {
-        $message += ("{0}: Found {1} sessions. Checking if {2} is logged in.`n" -f [datetime]::Now, $sessions.Count, $UserName)
+        $message += ("{0}: Found {1} sessions. Checking if {2} is logged in.`r`n" -f [datetime]::Now, $sessions.Count, $UserName)
 
         $sessions | ForEach-Object {
             If ($_.UserName -eq $UserName.Split('\')[-1]) {
-                $message += ("{0}: Found {1} logged in. The session ID is {2}. Calling Close-ActiveSessions.`n" -f [datetime]::Now, $UserName, $_.Id)
+                $message += ("{0}: Found {1} logged in. The session ID is {2}. Calling Close-ActiveSessions.`r`n" -f [datetime]::Now, $UserName, $_.Id)
 
                 $response = Close-ActiveSessions -ComputerName $ComputerName -Id $_.Id
 
