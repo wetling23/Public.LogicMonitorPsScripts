@@ -341,7 +341,7 @@ ElseIf ($startStatus -match 'Non-zero') {
     }
 }
 ElseIf ($startStatus -eq 'Not present') {
-    $message = ("{0}: AuthenticationLevelOverride from the registry." -f [datetime]::Now)
+    $message = ("{0}: Attempting to remove AuthenticationLevelOverride from the registry." -f [datetime]::Now)
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
     Try {
