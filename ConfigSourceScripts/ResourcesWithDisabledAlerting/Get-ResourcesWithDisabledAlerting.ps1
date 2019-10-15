@@ -1,10 +1,11 @@
 <#
     .DESCRIPTION
-        Using the LogicMonitor API, retrieves resources (devices/websites), for which alerting is disabled.
+      Using the LogicMonitor API, retrieves resources (devices/websites), for which alerting is disabled.
     .NOTES
         Author: Mike Hashemi
         V1.0.0.0 date: 18 September 2019
             - Initial release
+        V1.0.0.1 date: 14 October 2019
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/ResourcesWithDisabledAlerting
 #>
@@ -34,6 +35,10 @@ Function Get-ResourceAlertingDisabled {
 
     $message = ("{0}: Beginning {1}." -f [datetime]::Now, $MyInvocation.MyCommand)
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    If ([Console]::InputEncoding -is [Text.UTF8Encoding] -and [Console]::InputEncoding.GetPreamble().Length -ne 0) {
+        [Console]::InputEncoding = New-Object Text.UTF8Encoding $false
+    }
 
     #region Get data
     $message = ("{0}: Starting job to retrieve all devices." -f [datetime]::Now)
@@ -102,11 +107,11 @@ Function Get-ResourceAlertingDisabled {
     $websiteOutput = $alertingDisabledWebsites | ForEach-Object {
         $alertingStatus = $_.alertDisableStatus -split '-'
 
-            $_ | Select-Object id, name, displayName, @{ Name = 'groupAlertingStatus'; Expression = { If ($alertingStatus[0] -eq 'none') { 'Enabled' } Else { 'Disabled' } } }, @{ Name = 'resourceAlertingStatus'; Expression = { If ($alertingStatus[1] -eq 'none') { 'Enabled' } Else { 'Disabled' } } }, @{ Name = 'instanceAlertingStatus'; Expression = { If ($alertingStatus[2] -eq 'none') { 'Enabled' } Else { 'Disabled' } } }, @{ Name = 'Type'; Expression = { 'Website' } }
+        $_ | Select-Object id, name, displayName, @{ Name = 'groupAlertingStatus'; Expression = { If ($alertingStatus[0] -eq 'none') { 'Enabled' } Else { 'Disabled' } } }, @{ Name = 'resourceAlertingStatus'; Expression = { If ($alertingStatus[1] -eq 'none') { 'Enabled' } Else { 'Disabled' } } }, @{ Name = 'instanceAlertingStatus'; Expression = { If ($alertingStatus[2] -eq 'none') { 'Enabled' } Else { 'Disabled' } } }, @{ Name = 'Type'; Expression = { 'Website' } }
     }
     #endregion Process data
 
-    $message = ("{0}: Found {1} devices and {2} websites. Returning data" -f [datetime]::Now, $deviceOutput.Count, $websiteOutput.Count)
+    $message = ("{0}: Found {1} devices and {2} websites. Returning data." -f [datetime]::Now, $deviceOutput.Count, $websiteOutput.Count)
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
     $deviceOutput
@@ -114,6 +119,9 @@ Function Get-ResourceAlertingDisabled {
 }
 
 # Initialize variables.
+If ([Console]::InputEncoding -is [Text.UTF8Encoding] -and [Console]::InputEncoding.GetPreamble().Length -ne 0) {
+    [Console]::InputEncoding = New-Object Text.UTF8Encoding $false
+}
 $timer = [system.diagnostics.stopwatch]::startNew()
 $server = "##system.hostname##"
 $accountName = '##custom.lmApiAcctName##'
@@ -146,7 +154,7 @@ If (-NOT (Get-Module -Name LogicMonitor -ListAvailable)) {
     }
 }
 
-$message = ("{0}: Calling Get-ResourceAlertingDisabled with {1}, for {2}." -f [datetime]::Now, $accessId, $accountName)
+$message = ("{0}: Calling Get-ResourceAlertingDisabled with {1} for {3}." -f [datetime]::Now, $accessId, $accountName)
 If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
 $output = Get-ResourceAlertingDisabled -AccessId $accessId -AccessKey $accessKey -AccountName $accountName -LogFile $logFile
@@ -165,6 +173,6 @@ Else {
 $timer.Stop()
 
 $message = ("{0}: {1} completed successfully. The script took {2}:{3}:{4} (hours:minutes:seconds) to run." -f [datetime]::Now, $MyInvocation.MyCommand, $timer.Elapsed.Hour, $timer.Elapsed.Minutes, $timer.Elapsed.Seconds)
-Write-Host $message; $message | Out-File -FilePath $logFile -Append
+$message | Out-File -FilePath $logFile -Append
 
 Exit 0
