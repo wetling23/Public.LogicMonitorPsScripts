@@ -73,6 +73,9 @@ If (($Recurse -eq $true) -or ("##custom.FileSizeRecurse##" -eq "true")) {
 }
 
 If ($Path -match ',') {
+    $message = ("{0}: Path contains a comma, separating into an array." -f [datetime]::Now)
+    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
     $Path = $Path.Split(',')
 }
 
