@@ -33,7 +33,7 @@ If (Test-Path -Path "C:\Program Files (x86)\LogicMonitor\Agent\Logs" -ErrorActio
 Else {
     $logDirPath = "$([System.Environment]::SystemDirectory)" # Directory, into which the log file will be written.
 }
-$logFile = "$logDirPath\datasource-Get_File_Size-collection.log"
+$logFile = "$logDirPath\datasource-Get_File_Size-collection-$(("##wildalias##").Split('\')[-1]).log"
 
 $message = ("{0}: Beginning {1}." -f [datetime]::Now, $MyInvocation.MyCommand)
 If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
@@ -43,7 +43,7 @@ If (-NOT($FilePath)) {
     $message = ("{0}: No file path provided, attempting to retrieve from LogicMonitor." -f [datetime]::Now)
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
-    $FilePath = "##wildvalue##"
+    $FilePath = "##wildalias##"
 }
 If (-NOT($TargetComputer)) {
     $message = ("{0}: No target computer provided, attempting to retrieve from LogicMonitor." -f [datetime]::Now)

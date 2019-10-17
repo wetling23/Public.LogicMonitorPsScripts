@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<feed  version="1.0" hasPendingRequests="false" >
+  <company></company>
+  <status>200</status>
+  <errmsg>OK</errmsg>
+  <interval>0</interval>
+    <entry type="predatasource">
+        <version>1571338068</version>
+        <name>Get_FileSize_Windows</name>
+        <displayedas>File Size</displayedas>
+        <description>Monitor file size in a Windows directory.</description>
+        <collector>script</collector>
+        <hasMultiInstances>true</hasMultiInstances>
+        <schedule>180</schedule>
+        <appliesTo>custom.fileSizePath &#38;&#38; custom.fileSizeRecurse</appliesTo>
+        <wildcardauto>true</wildcardauto>
+        <wildcardpersist>false</wildcardpersist>
+        <wildcardlinuxscript>ad_script</wildcardlinuxscript>
+        <wildcardlinuxcmdline>type=&#34;powerShell&#34; </wildcardlinuxcmdline>
+        <wildcardwinscript>ad_script</wildcardwinscript>
+        <wildcardwincmdline>type=&#34;powerShell&#34; </wildcardwincmdline>
+        <wildcardgroovyscript>&#60;#
+    .DESCRIPTION
+        Retrieve a list of files from a user-specified path.
+    .NOTES
+        Author: Mike Hashemi
+        V1.0.0.0 date: 17 October 2019
+            - Initial release
+    .LINK
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Files/Get-FileSize
+    .PARAMETER Path
+        Path on the target computer, to query for files.
+    .PARAMETER TargetComputer
+        IP address of the target computer.
+    .PARAMETER Credential
+        Credential with access to the path on the target computer.
+    .PARAMETER Recurse
+        Boolean parameter that controls whether or not the script will attempt to query.
+    .EXAMPLE
+        PS C:&#62; Get-FileSize_ActiveDiscovery.ps1 -Path C:\Temp,H:\ -Recurse False -TargetComputer 10.1.1.10 -Credential Get-Credential
+
+        In this example, the script returns the contents of C:\Temp and H:\, without searching down the tree.
+    .EXAMPLE
+        PS C:&#62; Get-FileSize_ActiveDiscovery.ps1 -Path H:\ -Recurse True -TargetComputer 10.1.1.10
+
+        In this example, the script returns the contents of H:\, recursively.
+#&#62;
+[CmdletBinding()]
+param (
+    [string[]]$Path,
+
+    [string]$TargetComputer,
+
+    [System.Management.Automation.PSCredential]$Credential,
+
+    [boolean]$Recurse
+)
+
+If (Test-Path -Path &#34;C:\Program Files (x86)\LogicMonitor\Agent\Logs&#34; -ErrorAction SilentlyContinue) {
+    $logDirPath = &#34;C:\Program Files (x86)\LogicMonitor\Agent\Logs&#34; # Directory, into which the log file will be written.
+}
+Else {
+    $logDirPath = &#34;$([System.Environment]::SystemDirectory)&#34; # Directory, into which the log file will be written.
+}
+$logFile = &#34;$logDirPath\datasource-Get_File_Size-ad.log&#34;
+
+$message = (&#34;{0}: Beginning {1}.&#34; -f [datetime]::Now, $MyInvocation.MyCommand)
+If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
+
+# Initialize variables.
+$files = [System.Collections.Generic.List[PSObject]]::new()
+If (-NOT($Path)) {
+    $message = (&#34;{0}: No path provided, attempting to retrieve from LogicMonitor.&#34; -f [datetime]::Now)
+    If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    $Path = &#34;##custom.fileSizePath##&#34;
+}
+If (-NOT($TargetComputer)) {
+    $message = (&#34;{0}: No target computer provided, attempting to retrieve from LogicMonitor.&#34; -f [datetime]::Now)
+    If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    $TargetComputer = &#39;##system.hostname##&#39;
+}
+If (-NOT($Credential)) {
+    $message = (&#34;{0}: No credential provided, attempting to retrieve from LogicMonitor.&#34; -f [datetime]::Now)
+    If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    $Credential = New-Object System.Management.Automation.PSCredential (&#39;##wmi.user##&#39;, (ConvertTo-SecureString -String &#39;##wmi.pass##&#39; -AsPlainText -Force))
+}
+If (($Recurse -eq $true) -or (&#34;##custom.FileSizeRecurse##&#34; -eq &#34;true&#34;)) {
+    $commandParams = @{
+        Recurse = $true
+    }
+}
+
+If ($Path -match &#39;,&#39;) {
+    $message = (&#34;{0}: Path contains a comma, separating into an array.&#34; -f [datetime]::Now)
+    If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    $Path = $Path.Split(&#39;,&#39;)
+}
+
+$Path | ForEach-Object {
+    $message = (&#34;{0}: Targeting {1} on {2}.&#34; -f [datetime]::Now, $_, $TargetComputer)
+    If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    $result = Invoke-Command -ComputerName $TargetComputer -Credential $Credential -ScriptBlock {
+        param(
+            $path,
+            $commandParams
+        )
+
+        Try {
+            Get-ChildItem -Path $path @commandParams -ErrorAction Stop -File
+        }
+        Catch [System.Management.Automation.ParameterBindingException] {
+            (&#34;{0}: It appears that the path ({1}) is invalid because PowerShell is complaining about the -File parameter.&#34; -f [datetime]::Now, $path)
+        }
+        Catch {
+            (&#34;{0}: Error getting file information from {1}. The specific error is: {2}&#34; -f [datetime]::Now, $path, $_.Exception.Message)
+        }
+    } -ArgumentList $_, $commandParams
+
+    $result | ForEach-Object { $files.Add($_) }
+}
+
+If (-NOT ($files.Name)) {
+    $message = (&#34;{0}: No file data returned from {1}. The device returned: {2}&#34; -f [datetime]::Now, $TargetComputer, $files)
+    If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    Exit 1
+}
+Else {
+    $message = (&#34;{0}: Found {1} files.&#34; -f [datetime]::Now, $files.Count)
+    If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    $files | ForEach-Object {
+        $message = (&#34;{0}: Returning {1}.&#34; -f [datetime]::Now, $_.Name)
+        If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+        Write-Host &#34;$($_.Name)##$($_.FullName)&#34;
+    }
+
+    Exit 0
+}</wildcardgroovyscript>
+        <wildcardschedule>0</wildcardschedule>
+        <wildcarddisable>false</wildcarddisable>
+        <wildcarddeleteinactive>true</wildcarddeleteinactive>
+        <agdmethod>none</agdmethod>
+        <agdparams></agdparams>
+        <group></group>
+        <tags></tags>
+        <technology>The DataSource requires the custom.fileSizePath and custom.FileSizeRecurse parameters.
+
+custom.fileSizePath: Comma-separated list of paths (e.g. C:\Temp,H:\). Don&#39;t use quotes.
+
+custom.fileSizeRecurse: True or False, controls whether or not the script will recursively search the paths.
+
+There is no hard limit on file count. Be aware that, if there are too many files in the path (e.g. C:\ with recurse), the DataSource ActiveDiscovery will time out with no outward errors.</technology>
+        <adlist><![CDATA[{"agdmethod":"none","method":"ad_script","agdparams":"","id":0,"filters":[],"params":{"type":"powerShell","groovyscript":"<#\r\n    .DESCRIPTION\r\n        Retrieve a list of files from a user-specified path.\r\n    .NOTES\r\n        Author: Mike Hashemi\r\n        V1.0.0.0 date: 17 October 2019\r\n            - Initial release\r\n    .LINK\r\n        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Files/Get-FileSize\r\n    .PARAMETER Path\r\n        Path on the target computer, to query for files.\r\n    .PARAMETER TargetComputer\r\n        IP address of the target computer.\r\n    .PARAMETER Credential\r\n        Credential with access to the path on the target computer.\r\n    .PARAMETER Recurse\r\n        Boolean parameter that controls whether or not the script will attempt to query.\r\n    .EXAMPLE\r\n        PS C:> Get-FileSize_ActiveDiscovery.ps1 -Path C:\\Temp,H:\\ -Recurse False -TargetComputer 10.1.1.10 -Credential Get-Credential\r\n\r\n        In this example, the script returns the contents of C:\\Temp and H:\\, without searching down the tree.\r\n    .EXAMPLE\r\n        PS C:> Get-FileSize_ActiveDiscovery.ps1 -Path H:\\ -Recurse True -TargetComputer 10.1.1.10\r\n\r\n        In this example, the script returns the contents of H:\\, recursively.\r\n#>\r\n[CmdletBinding()]\r\nparam (\r\n    [string[]]$Path,\r\n\r\n    [string]$TargetComputer,\r\n\r\n    [System.Management.Automation.PSCredential]$Credential,\r\n\r\n    [boolean]$Recurse\r\n)\r\n\r\nIf (Test-Path -Path \"C:\\Program Files (x86)\\LogicMonitor\\Agent\\Logs\" -ErrorAction SilentlyContinue) {\r\n    $logDirPath = \"C:\\Program Files (x86)\\LogicMonitor\\Agent\\Logs\" # Directory, into which the log file will be written.\r\n}\r\nElse {\r\n    $logDirPath = \"$([System.Environment]::SystemDirectory)\" # Directory, into which the log file will be written.\r\n}\r\n$logFile = \"$logDirPath\\datasource-Get_File_Size-ad.log\"\r\n\r\n$message = (\"{0}: Beginning {1}.\" -f [datetime]::Now, $MyInvocation.MyCommand)\r\nIf (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }\r\n\r\n# Initialize variables.\r\n$files = [System.Collections.Generic.List[PSObject]]::new()\r\nIf (-NOT($Path)) {\r\n    $message = (\"{0}: No path provided, attempting to retrieve from LogicMonitor.\" -f [datetime]::Now)\r\n    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }\r\n\r\n    $Path = \"##custom.fileSizePath##\"\r\n}\r\nIf (-NOT($TargetComputer)) {\r\n    $message = (\"{0}: No target computer provided, attempting to retrieve from LogicMonitor.\" -f [datetime]::Now)\r\n    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }\r\n\r\n    $TargetComputer = '##system.hostname##'\r\n}\r\nIf (-NOT($Credential)) {\r\n    $message = (\"{0}: No credential provided, attempting to retrieve from LogicMonitor.\" -f [datetime]::Now)\r\n    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }\r\n\r\n    $Credential = New-Object System.Management.Automation.PSCredential ('##wmi.user##', (ConvertTo-SecureString -String '##wmi.pass##' -AsPlainText -Force))\r\n}\r\nIf (($Recurse -eq $true) -or (\"##custom.FileSizeRecurse##\" -eq \"true\")) {\r\n    $commandParams = @{\r\n        Recurse = $true\r\n    }\r\n}\r\n\r\nIf ($Path -match ',') {\r\n    $message = (\"{0}: Path contains a comma, separating into an array.\" -f [datetime]::Now)\r\n    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }\r\n\r\n    $Path = $Path.Split(',')\r\n}\r\n\r\n$Path | ForEach-Object {\r\n    $message = (\"{0}: Targeting {1} on {2}.\" -f [datetime]::Now, $_, $TargetComputer)\r\n    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }\r\n\r\n    $result = Invoke-Command -ComputerName $TargetComputer -Credential $Credential -ScriptBlock {\r\n        param(\r\n            $path,\r\n            $commandParams\r\n        )\r\n\r\n        Try {\r\n            Get-ChildItem -Path $path @commandParams -ErrorAction Stop -File\r\n        }\r\n        Catch [System.Management.Automation.ParameterBindingException] {\r\n            (\"{0}: It appears that the path ({1}) is invalid because PowerShell is complaining about the -File parameter.\" -f [datetime]::Now, $path)\r\n        }\r\n        Catch {\r\n            (\"{0}: Error getting file information from {1}. The specific error is: {2}\" -f [datetime]::Now, $path, $_.Exception.Message)\r\n        }\r\n    } -ArgumentList $_, $commandParams\r\n\r\n    $result | ForEach-Object { $files.Add($_) }\r\n}\r\n\r\nIf (-NOT ($files.Name)) {\r\n    $message = (\"{0}: No file data returned from {1}. The device returned: {2}\" -f [datetime]::Now, $TargetComputer, $files)\r\n    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }\r\n\r\n    Exit 1\r\n}\r\nElse {\r\n    $message = (\"{0}: Found {1} files.\" -f [datetime]::Now, $files.Count)\r\n    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }\r\n\r\n    $files | ForEach-Object {\r\n        $message = (\"{0}: Returning {1}.\" -f [datetime]::Now, $_.Name)\r\n        If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }\r\n\r\n        Write-Host \"$($_.Name)##$($_.FullName)\"\r\n    }\r\n\r\n    Exit 0\r\n}"}}]]></adlist>
+        <schemaVersion>2</schemaVersion>
+        <dataSourceType>1</dataSourceType>
+        <attributes>
+        <attribute>
+            <name>scripttype</name>
+            <value>powerShell</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>scriptgroovy</name>
+            <value>&#60;#
+    .DESCRIPTION
+        
+    .NOTES
+        Author: Mike Hashemi
+        V1.0.0.0 date: 18 October 2019
+            - Initial release
+    .LINK
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Files/Get-FileSize
+    .PARAMETER FilePath
+        Path to a file, on the target computer, to query.
+    .PARAMETER TargetComputer
+        IP address of the target computer.
+    .PARAMETER Credential
+        Credential with access to the path on the target computer.
+    .EXAMPLE
+        PS C:&#62; Get-FileSize_Collection.ps1 -FilePath C:\Temp\test.txt -TargetComputer 10.1.1.10 -Credential Get-Credential
+
+        In this example, the script returns the size of C:\Temp\test.txt.
+#&#62;
+[CmdletBinding()]
+param (
+    [string]$FilePath,
+
+    [string]$TargetComputer,
+
+    [System.Management.Automation.PSCredential]$Credential
+)
+
+If (Test-Path -Path &#34;C:\Program Files (x86)\LogicMonitor\Agent\Logs&#34; -ErrorAction SilentlyContinue) {
+    $logDirPath = &#34;C:\Program Files (x86)\LogicMonitor\Agent\Logs&#34; # Directory, into which the log file will be written.
+}
+Else {
+    $logDirPath = &#34;$([System.Environment]::SystemDirectory)&#34; # Directory, into which the log file will be written.
+}
+$logFile = &#34;$logDirPath\datasource-Get_File_Size-collection-$((&#34;##wildalias##&#34;).Split(&#39;\&#39;)[-1]).log&#34;
+
+$message = (&#34;{0}: Beginning {1}.&#34; -f [datetime]::Now, $MyInvocation.MyCommand)
+If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
+
+# Initialize variables.
+If (-NOT($FilePath)) {
+    $message = (&#34;{0}: No file path provided, attempting to retrieve from LogicMonitor.&#34; -f [datetime]::Now)
+    If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    $FilePath = &#34;##wildalias##&#34;
+}
+If (-NOT($TargetComputer)) {
+    $message = (&#34;{0}: No target computer provided, attempting to retrieve from LogicMonitor.&#34; -f [datetime]::Now)
+    If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    $TargetComputer = &#39;##system.hostname##&#39;
+}
+If (-NOT($Credential)) {
+    $message = (&#34;{0}: No credential provided, attempting to retrieve from LogicMonitor.&#34; -f [datetime]::Now)
+    If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    $Credential = New-Object System.Management.Automation.PSCredential (&#39;##wmi.user##&#39;, (ConvertTo-SecureString -String &#39;##wmi.pass##&#39; -AsPlainText -Force))
+}
+
+$message = (&#34;{0}: Targeting {1} on {2}.&#34; -f [datetime]::Now, $FilePath, $TargetComputer)
+If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+$fileInfo = Invoke-Command -ComputerName $TargetComputer -Credential $Credential -ScriptBlock {
+    param(
+        $path
+    )
+
+    Try {
+        Get-ChildItem -Path $path -ErrorAction Stop -File
+    }
+    Catch {
+        (&#34;{0}: Error getting file information from {1}. The specific error is: {2}&#34; -f [datetime]::Now, $path, $_.Exception.Message)
+    }
+
+} -ArgumentList $FilePath
+
+If ($fileInfo.Length -lt 1) {
+    $message = (&#34;{0}: No file data returned from {1}. The device returned: {2}&#34; -f [datetime]::Now, $TargetComputer, $fileInfo)
+    If (($PSBoundParameters[&#39;Verbose&#39;]) -or $VerbosePreference -eq &#39;Continue&#39;) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    Exit 1
+}
+Else {
+    Write-Host (&#34;FileSize(GB)={0}&#34; -f ($fileInfo.Length / 1GB))
+    Write-Host (&#34;FileSize(MB)={0}&#34; -f ($fileInfo.Length / 1MB))
+    Write-Host (&#34;FileSize(KB)={0}&#34; -f ($fileInfo.Length / 1KB))
+
+    Exit 0
+}</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>windowsscript</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>linuxscript</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>windowscmdline</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>linuxcmdline</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        </attributes>
+        <datapoints>
+        <datapoint>
+            <name>FileSize_KB</name>
+            <dataType>7</dataType>
+            <type>2</type>
+            <postprocessormethod>regex</postprocessormethod>
+            <postprocessorparam>FileSize\(KB\)=(\d+)</postprocessorparam>
+            <usevalue>output</usevalue>
+            <alertexpr></alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody></alertbody>
+            <description>Reported size of the file, in KB.</description>
+            <maxvalue></maxvalue>
+            <minvalue></minvalue>
+            <userparam1></userparam1>
+            <userparam2></userparam2>
+            <userparam3></userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        <datapoint>
+            <name>FileSize_GB</name>
+            <dataType>7</dataType>
+            <type>2</type>
+            <postprocessormethod>regex</postprocessormethod>
+            <postprocessorparam>FileSize\(GB\)=(\d+)</postprocessorparam>
+            <usevalue>output</usevalue>
+            <alertexpr></alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody></alertbody>
+            <description>Reported size of the file, in GB.</description>
+            <maxvalue></maxvalue>
+            <minvalue></minvalue>
+            <userparam1></userparam1>
+            <userparam2></userparam2>
+            <userparam3></userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        <datapoint>
+            <name>FileSize_MB</name>
+            <dataType>7</dataType>
+            <type>2</type>
+            <postprocessormethod>regex</postprocessormethod>
+            <postprocessorparam>FileSize\(MB\)=(\d+)</postprocessorparam>
+            <usevalue>output</usevalue>
+            <alertexpr></alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody></alertbody>
+            <description>Reported size of the file, in MB.</description>
+            <maxvalue></maxvalue>
+            <minvalue></minvalue>
+            <userparam1></userparam1>
+            <userparam2></userparam2>
+            <userparam3></userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        </datapoints>
+        <graphs>
+        </graphs>
+        <overviewgraphs>
+        </overviewgraphs>
+        <scripts>
+        </scripts>
+    </entry>
+</feed>

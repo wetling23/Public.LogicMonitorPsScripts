@@ -110,14 +110,14 @@ If (-NOT ($files.Name)) {
     Exit 1
 }
 Else {
-    $message = ("{0}: Found {1} files in {2}." -f [datetime]::Now, $files.Count, $path)
+    $message = ("{0}: Found {1} files." -f [datetime]::Now, $files.Count)
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
     $files | ForEach-Object {
         $message = ("{0}: Returning {1}." -f [datetime]::Now, $_.Name)
         If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
-        Write-Host "$($_.FullName)##$($_.Name)"
+        Write-Host "$($_.Name)##$($_.FullName)"
     }
 
     Exit 0
