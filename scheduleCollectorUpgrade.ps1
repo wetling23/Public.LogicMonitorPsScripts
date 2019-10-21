@@ -24,6 +24,7 @@
             - Fixed another bug with newest-version identification.
         V1.0.0.9 date: 9 September 2019
         V1.0.0.10 date: 25 September 2019
+        V1.0.0.11 dat: 21 October 2019
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts
     .PARAMETER AccessId
@@ -268,7 +269,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
 
         $timer.Stop()
 
-        $message = ("{0}: {1} completed successfully. The script took {2}:{3}:{4} (hours:minutes:seconds) to run." -f [datetime]::Now, $MyInvocation.MyCommand, $timer.Elapsed.Hour, $timer.Elapsed.Minutes, $timer.Elapsed.Seconds)
+        $message = ("{0}: {1} completed successfully. The script took {2} minutes to run." -f [datetime]::Now, $MyInvocation.MyCommand, $timer.Elapsed.TotalMinutes)
         If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
         Exit 0
@@ -276,7 +277,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     Catch {
         $timer.Stop()
 
-        $message = ("{0}: Unexpected error sending the e-mail message to {1}. The script took {2}:{3}:{4} (hours:minutes:seconds) to run. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipient, $timer.Elapsed.Hour, $timer.Elapsed.Minutes, $timer.Elapsed.Seconds, $_.Exception.Message)
+        $message = ("{0}: Unexpected error sending the e-mail message to {1}. The script took {2} minutes to run. The specific error is: {3}" -f (Get-Date -Format s), $ReportRecipient, $timer.Elapsed.TotalMinutes, $_.Exception.Message)
         If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417 }
 
         Exit 1
@@ -285,7 +286,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
 Catch {
     $timer.Stop()
 
-    $message = ("{0}: Unexpected error somewhere in {1}, which ran for {2}:{3}:{4} (hours:minutes:seconds). The specific error is: {5}" -f (Get-Date -Format s), $MyInvocation.MyCommand, $timer.Elapsed.Hour, $timer.Elapsed.Minutes, $timer.Elapsed.Seconds, $_.Exception.Message)
+    $message = ("{0}: Unexpected error somewhere in {1}, which ran for {2} minutes. The specific error is: {3}" -f (Get-Date -Format s), $MyInvocation.MyCommand, $timer.Elapsed.TotalMinutes, $_.Exception.Message)
     If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417 }
 
     Exit 1
