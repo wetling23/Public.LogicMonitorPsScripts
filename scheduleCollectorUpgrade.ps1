@@ -24,7 +24,8 @@
             - Fixed another bug with newest-version identification.
         V1.0.0.9 date: 9 September 2019
         V1.0.0.10 date: 25 September 2019
-        V1.0.0.11 dat: 21 October 2019
+        V1.0.0.11 date: 21 October 2019
+        V1.0.0.12 date: 22 October 2019
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts
     .PARAMETER AccessId
@@ -186,6 +187,22 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     If (($downlevelCollectors) -and ($downlevelCollectors -ne "Error")) {
         $message = ("{0}: Found {1} downlevel collectors." -f (Get-Date -Format s), $downlevelCollectors.Count)
         If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
+    }
+    ElseIf (-NOT($downlevelCollectors)) {
+        $message = ("{0}: All collectors appear to be at the current version. No further action to take." -f (Get-Date -Format s))
+        If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
+
+        Try {
+            Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Success: Collector Upgrade-Script' -To $ReportRecipient -Body "All collectors are running the current version."
+
+            Exit 0
+        }
+        Catch {
+            $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipient, $_.Exception.Message)
+            If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417 }
+
+            Exit 1
+        }
     }
     Else {
         $message = ("{0}: Unable to identify any downlevel collectors. No further action to take." -f (Get-Date -Format s))
