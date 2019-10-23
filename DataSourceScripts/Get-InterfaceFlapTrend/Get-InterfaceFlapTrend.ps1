@@ -5,6 +5,7 @@
         Author: Mike Hashemi
         V1.0.0.0 date: 17 September 2019
             - Initial release
+        V1.0.0.1 date: 23 October 2019
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Get-InterfaceFlapTrend
     .PARAMETER LogFile
