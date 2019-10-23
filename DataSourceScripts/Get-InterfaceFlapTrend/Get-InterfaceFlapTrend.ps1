@@ -227,7 +227,7 @@ If (-NOT($AccessKey)) {
     $message = ("{0}: No LogicMonitor API key provided, attempting to retrieve from LogicMonitor." -f [datetime]::Now)
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
-    $AccessKey = '##lmaccess.id##' | ConvertTo-SecureString -AsPlainText -Force
+    $AccessKey = '##lmaccess.key##' | ConvertTo-SecureString -AsPlainText -Force
 }
 
 $httpVerb = 'GET'
