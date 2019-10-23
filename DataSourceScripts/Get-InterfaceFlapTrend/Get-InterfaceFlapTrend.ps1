@@ -36,6 +36,7 @@ Function Get-InterfaceFlapTrend {
             Author: Mike Hashemi
             V1.0.0.0 date: 17 September 2019
                 - Initial release
+            V1.0.0.1 date: 23 October 2019
         .LINK
             https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Get-InterfaceFlapTrend
         .PARAMETER AccessId
@@ -92,21 +93,45 @@ Function Get-InterfaceFlapTrend {
 
     # Create the web client object and add headers
     $headers = @{
-        "Authorization" = "LMv1 $accessId`:$signature`:$epoch"
+        "Authorization" = "LMv1 $AccessId`:$signature`:$epoch"
         "Content-Type"  = "application/json"
         "X-Version"     = 2
     }
 
-    $message = ("Attempting to get the list of applied DataSources.")
+    $message = ("{0}: Attempting to get the list of applied DataSources." -f [datetime]::Now)
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
-    $appliedDataSources = Invoke-RestMethod -Uri $url -Method $httpVerb -Header $headers -ErrorAction Stop
+    Try {
+        $appliedDataSources = Invoke-RestMethod -Uri $url -Method $httpVerb -Header $headers -ErrorAction Stop
+    }
+    Catch {
+        If ($_.Exception.Message -match '429') {
+            $message = ("{0}: Rate limit exceeded, retrying in 60 seconds." -f [datetime]::Now, $MyInvocation.MyCommand, $_.Exception.Message)
+            If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+            Start-Sleep -Seconds 60
+        }
+        Else {
+            $message = ("{0}: Unexpected error getting flap data. To prevent errors, {1} will exit. If present, the following details were returned:`r`n
+                Error message: {2}`r
+                Error code: {3}`r
+                Invoke-Request: {4}`r
+                Headers: {5}`r
+                Body: {6}" -f
+                [datetime]::Now, $MyInvocation.MyCommand, ($_ | ConvertFrom-Json -ErrorAction SilentlyContinue | Select-Object -ExpandProperty errorMessage),
+                ($_ | ConvertFrom-Json -ErrorAction SilentlyContinue | Select-Object -ExpandProperty errorCode), $_.Exception.Message, ($headers | Out-String), ($data | Out-String)
+            )
+            Write-Error $message; $message | Out-File -FilePath $logFile -Append
+
+            Return "Error"
+        }
+    }
 
     If (-NOT($appliedDataSources) -or $appliedDataSources -eq "Error") {
         Return "Error"
     }
 
-    $message = ("Filtering for monitored instances of {0}." -f $DataSourceName)
+    $message = ("{0}: Filtering for monitored instances of {1}." -f [datetime]::Now, $DataSourceName)
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
     $instances = $appliedDataSources.items | Where-Object { ($_.name -match $DataSourceName) -and ($_.stopMonitoring -eq $false) }
@@ -114,7 +139,7 @@ Function Get-InterfaceFlapTrend {
     $instances | ForEach-Object {
         $instance = $_
 
-        $message = ("Attempting to get value data for the {0} instance." -f $instance.displayName)
+        $message = ("{0}: Attempting to get value data for the {1} instance." -f [datetime]::Now, $instance.displayName)
         If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
         # This is where we start getting datapoint values
@@ -134,12 +159,28 @@ Function Get-InterfaceFlapTrend {
 
         # Create the web client object and add headers
         $headers = @{
-            "Authorization" = "LMv1 $accessId`:$signature`:$epoch"
+            "Authorization" = "LMv1 $AccessId`:$signature`:$epoch"
             "Content-Type"  = "application/json"
             "X-Version"     = 2
         }
 
-        [array]$datapoints = Invoke-RestMethod -Uri $url -Method $httpVerb -Header $headers -ErrorAction Stop
+        Try {
+            [array]$datapoints = Invoke-RestMethod -Uri $url -Method $httpVerb -Header $headers -ErrorAction Stop
+        }
+        Catch {
+            $message = ("{0}: Unexpected error getting datapoints. To prevent errors, {1} will exit. If present, the following details were returned:`r`n
+                Error message: {2}`r
+                Error code: {3}`r
+                Invoke-Request: {4}`r
+                Headers: {5}`r
+                Body: {6}" -f
+                [datetime]::Now, $MyInvocation.MyCommand, ($_ | ConvertFrom-Json -ErrorAction SilentlyContinue | Select-Object -ExpandProperty errorMessage),
+                ($_ | ConvertFrom-Json -ErrorAction SilentlyContinue | Select-Object -ExpandProperty errorCode), $_.Exception.Message, ($headers | Out-String), ($data | Out-String)
+            )
+            Write-Error $message; $message | Out-File -FilePath $logFile -Append
+
+            Return "Error"
+        }
 
         $index = [array]::indexOf($datapoints.datapoints, 'StatusFlap')
 
@@ -152,18 +193,15 @@ Function Get-InterfaceFlapTrend {
     }
 
     $flapObject
+} #1.0.0.1
+
+#region Setup
+# Initialize variables.
+If (-NOT($DeviceId)) {
+    $DeviceId = '##system.deviceId##'
 }
 
-# Initialize variables.
-$DeviceId = '##system.deviceId##'
-$httpVerb = 'GET'
-$accountName = '##custom.apiAcctName##'
-$accessId = '##api.user##'
-$accessKey = '##api.key##' | ConvertTo-SecureString -AsPlainText -Force
-$minTime = ((Get-Date).AddMinutes(-10)).ToUniversalTime()
-$maxTime = (Get-Date).ToUniversalTime()
-$origin = New-Object -Type DateTime -ArgumentList 1970, 1, 1, 0, 0, 0, 0
-$flapCount = 0
+# Gotta define the log file after populating $DeviceId, because we use that variable's value in the file name.
 If (Test-Path -Path "C:\Program Files (x86)\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
     $logDirPath = "C:\Program Files (x86)\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
 }
@@ -172,13 +210,48 @@ Else {
 }
 $logFile = "$logDirPath\datasource-Get-InterfaceFlapTrend-collection-$DeviceId.log"
 
+If (-NOT($AccountName)) {
+    $message = ("{0}: No account name provided, attempting to retrieve from LogicMonitor." -f [datetime]::Now)
+    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    $AccountName = '##lmaccount##'
+}
+If (-NOT($AccessId)) {
+    $message = ("{0}: No LogicMonitor API ID provided, attempting to retrieve from LogicMonitor." -f [datetime]::Now)
+    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    $AccessId = '##lmaccess.id##'
+}
+If (-NOT($AccessKey)) {
+    $message = ("{0}: No LogicMonitor API key provided, attempting to retrieve from LogicMonitor." -f [datetime]::Now)
+    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    $AccessKey = '##lmaccess.id##' | ConvertTo-SecureString -AsPlainText -Force
+}
+
+$httpVerb = 'GET'
+$minTime = ((Get-Date).AddMinutes(-10)).ToUniversalTime()
+$maxTime = (Get-Date).ToUniversalTime()
+$origin = New-Object -Type DateTime -ArgumentList 1970, 1, 1, 0, 0, 0, 0
+$flapCount = 0
+#endregion Setup
+
+#region Main
 $message = ("{0}: Beginning {1}." -f [datetime]::Now, $MyInvocation.MyCommand)
 If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
 
-$flapData = Get-InterfaceFlapTrend -AccessId $accessId -AccessKey $accessKey -AccountName $accountName -DeviceId $DeviceId -LogFile $logFile
+$flapData = Get-InterfaceFlapTrend -AccessId $AccessId -AccessKey $AccessKey -AccountName $AccountName -DeviceId $DeviceId -LogFile $logFile
 
-If ($flapData.StatusFlap.Count -lt 1) {
-    $message = ("Found too little data. Exiting in an error state.")
+If ($flapData -match 'Error') {
+    $message = ("{0}: Get-InterfaceFlapTrend returned an error. Exiting in an error state." -f [datetime]::Now)
+    Write-Error $message; $message | Out-File -FilePath $logFile -Append
+
+    Write-Host ('ScriptError=1')
+
+    Exit 1
+}
+ElseIf ($flapData.StatusFlap.Count -lt 1) {
+    $message = ("{0}: Found too little data. Exiting in an error state." -f [datetime]::Now)
     Write-Error $message; $message | Out-File -FilePath $logFile -Append
 
     Write-Host ('ScriptError=1')
@@ -191,11 +264,11 @@ Else {
         If (($minTime.TimeOfDay -le $dataPointTime.TimeOfDay -and $maxTime.TimeOfDay -ge $dataPointTime.TimeOfDay) -and ($_.StatusFlap -gt 0)) {
             $flapCount++
 
-            $message = ("Found a flap in the previous 10 minutes. The value of `$flapCount is now {0}." -f $flapCount)
+            $message = ("{0}: Found a flap in the previous 10 minutes. The value of `$flapCount is now {1}." -f [datetime]::Now, $flapCount)
             If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
         }
         Else {
-            $message = ("{0} (UTC) is either not in the last 10 minutes or not '1'." -f $dataPointTime)
+            $message = ("{0}: {1} (UTC) is either not in the last 10 minutes or not '1'." -f [datetime]::Now, $dataPointTime)
             If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
         }
     }
@@ -205,3 +278,4 @@ Else {
 
     Exit 0
 }
+#endregion Main
