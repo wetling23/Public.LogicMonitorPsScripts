@@ -13,7 +13,7 @@
         Mandatory parameter. Represents the access key used to connected to LogicMonitor's REST API.
     .PARAMETER AccountName
         Mandatory parameter. Represents the subdomain of the LogicMonitor customer.
-    .PARAMETER GroupId
+    .PARAMETER GroupName
         When included, the script will filter the list or retrieved devices, to include only those in the specified device group.
     .PARAMETER OutputPath
         When provided, the script will output the report to this path.
@@ -45,7 +45,7 @@ Param (
     [Parameter(Mandatory)]
     [string]$AccountName,
 
-    [int64]$GroupId,
+    [string]$GroupName,
 
     [ValidateScript( {
             If (-NOT ($_ | Test-Path) ) {
@@ -103,13 +103,19 @@ If ($allLmDevices -eq "Error") {
     Exit 1
 }
 
-If ($GroupId) {
-    $message = ("{0}: Filtering for devices in group {1}." -f [datetime]::Now, $GroupId)
+If ($GroupName) {
+    $message = ("{0}: Filtering for devices in group {1}." -f [datetime]::Now, $GroupName)
     If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
 
-    $devices = $allLmDevices | Where-Object { $GroupId -in ($_.hostGroupIds).Split(',') }
+    $devices = ($allLmDevices).Where({ ($_.systemProperties.name -eq 'system.groups') -and ($_.systemProperties.value -match $GroupName) })
+
+    $message = ("{0}: Found {1} devices in group {2}." -f [datetime]::Now, $devices.Count, $GroupName)
+    If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
 }
 Else {
+    $message = ("{0}: No device filter applied. There are {1} devices." -f [datetime]::Now, $allLmDevices.Count)
+    If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
+
     $devices = $allLmDevices
 
     Remove-Variable allLmDevices -Force
@@ -136,7 +142,7 @@ Foreach ($device in $devices) {
 
     # Create the web client object and add headers
     $headers = @{
-        "Authorization" = "LMv1 $accessId`:$signature`:$epoch"
+        "Authorization" = "LMv1 $AccessId`:$signature`:$epoch"
         "Content-Type"  = "application/json"
         "X-Version"     = 2
     }
@@ -161,7 +167,7 @@ Foreach ($device in $devices) {
 
         # Create the web client object and add headers
         $headers = @{
-            "Authorization" = "LMv1 $accessId`:$signature`:$epoch"
+            "Authorization" = "LMv1 $AccessId`:$signature`:$epoch"
             "Content-Type"  = "application/json"
             "X-Version"     = 2
         }
@@ -184,7 +190,7 @@ Foreach ($device in $devices) {
 
         # Create the web client object and add headers
         $headers = @{
-            "Authorization" = "LMv1 $accessId`:$signature`:$epoch"
+            "Authorization" = "LMv1 $AccessId`:$signature`:$epoch"
             "Content-Type"  = "application/json"
             "X-Version"     = 2
         }
@@ -209,7 +215,7 @@ Foreach ($device in $devices) {
 }
 
 If ($OutputPath) {
-    $file = "thresholdReport-$(Get-Date -Format s).csv"
+    $file = "thresholdReport-$GroupName.csv"
     Try {
         $group | Export-Csv -Path "$OutputPath\$file" -ErrorAction Stop
     }
