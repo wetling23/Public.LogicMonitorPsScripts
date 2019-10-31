@@ -5,6 +5,7 @@
         Author: Mike Hashemi
         V1.0.0.0 date: 3 September 2019
             - Initial release.
+        V1.0.0.1 date: 31 October 2019
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Reports/ThresholdReport-Script.ps1
     .PARAMETER AccessId
@@ -83,6 +84,7 @@ If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference
 # Initialize variables.
 $group = [System.Collections.Generic.List[PSObject]]::new()
 $progressCounter = 0
+$httpVerb = 'GET'
 
 If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') {
     $commandParams = @{
