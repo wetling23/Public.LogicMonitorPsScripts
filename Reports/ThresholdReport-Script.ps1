@@ -26,13 +26,13 @@
 
         In this example, the script gets all devices from LogicMonitor and generates a threshold report for them. Output is written to the Windows Application log with the default event source.
     .EXAMPLE
-        PS C:\> DeviceThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -GroupId 17 -BlockLogging -Verbose
+        PS C:\> DeviceThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -GroupName "Acme Inc" -BlockLogging -Verbose
 
-        In this example, the script gets all devices from LogicMonitor, in group 17 and generates a threshold report for them. Verbose output is written only to the console host.
+        In this example, the script gets all devices from LogicMonitor, in the "Acme Inc" group and generates a threshold report for them. Verbose output is written only to the console host.
     .EXAMPLE
-        PS C:\> DeviceThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -GroupId 17 -OutputPath C:\temp
+        PS C:\> DeviceThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -GroupName "Customer/Servers" -OutputPath C:\temp
 
-        In this example, the script gets all devices from LogicMonitor, in group 17 and generates a threshold report for them. Output is written to the Windows Application log with the default event source. The results are written to C:\temp.
+        In this example, the script gets all devices from LogicMonitor, in the "Acme Inc" servers group and generates a threshold report for them. Output is written to the Windows Application log with the default event source. The results are written to C:\temp.
 #>
 [CmdletBinding()]
 Param (
