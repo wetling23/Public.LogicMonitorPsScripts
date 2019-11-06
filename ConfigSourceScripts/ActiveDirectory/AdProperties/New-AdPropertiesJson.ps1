@@ -742,6 +742,18 @@ Function Get-GpoSettings {
 
     $script:backup | Add-Member -MemberType NoteProperty -Name GPOs -Value @($gpoCsv) -Force
 }
+Function ConvertTo-Json20 {
+    [CmdletBinding()]
+    param (
+        [object]$Item
+    )
+
+    Add-Type -Assembly system.web.extensions
+    
+    $ps_js = New-Object system.web.script.serialization.javascriptSerializer
+
+    Return $ps_js.Serialize($item)
+}
 # This section puts the Get-GpoReportData function definition into $code, so I can send the function to the remote DC.
 $code = @"
 Function Get-GpoReportData {
@@ -905,8 +917,14 @@ If ($backup.ForestName) {
     $message = ("{0}: Sending the backup to {1}." -f [datetime]::Now, "$([System.Environment]::SystemDirectory)\adConfig.json")
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
-    $backup | ConvertTo-Json | Out-File -FilePath "$([System.Environment]::SystemDirectory)\adConfig.json" -Force
-    $backup | ConvertTo-Json
+    If ($PSVersionTable.PSVersion -eq '2.0') {
+        ConvertTo-Json20 -Item $backup | Out-File -FilePath "$([System.Environment]::SystemDirectory)\adConfig.json" -Force
+        ConvertTo-Json20 -Item $backup
+    }
+    Else {
+        $backup | ConvertTo-Json | Out-File -FilePath "$([System.Environment]::SystemDirectory)\adConfig.json" -Force
+        $backup | ConvertTo-Json
+    }
 
     Exit 0
 }
