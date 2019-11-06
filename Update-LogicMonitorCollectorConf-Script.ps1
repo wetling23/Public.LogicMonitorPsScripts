@@ -26,6 +26,7 @@
 
         In this example, the script will replace "pdh.collect.preferredMethod=csharp" with "pdh.collect.preferredMethod=native", in the sbproxy.conf file and will save the file using UTF8 encoding. Logging is written to C:\temp\log.txt
 #>
+[CmdletBinding()]
 Param (
     [Parameter(Mandatory)]
     [ValidateScript( {
