@@ -1,6 +1,6 @@
 <#
     .DESCRIPTION
-        
+        Accept a LogicMonitor config file (with path), regex for a string to replace, and the string with which to replace it (along with the desired file encoding), then replace the regex-matching lines with the new string.
     .NOTES
         Author: Mike Hashemi
         V1.0.0.0 date: 7 November 2019
