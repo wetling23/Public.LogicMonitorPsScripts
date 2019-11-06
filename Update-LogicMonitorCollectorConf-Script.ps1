@@ -1,4 +1,3 @@
-##update collector config
 <#
     .DESCRIPTION
         
@@ -7,7 +6,7 @@
         V1.0.0.0 date: 7 November 2019
             - Initial release.
     .LINK
-
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Update-LogicMonitorCollectorConf-Script.ps1
     .PARAMETER ConfigFile
         Represents the path and file name of the config file to edit.
     .PARAMETER RegexToReplace
@@ -59,19 +58,6 @@ If (-NOT ($LogFile)) {
 
 $message = ("{0}: Beginning {1}." -f [datetime]::Now, $MyInvocation.MyCommand)
 Write-Host $message; If ($LogFile) { $message | Out-File -FilePath $LogFile }
-
-If ($PSScriptRoot -match 'C:\ProgramData\CentraStage\Packages') {
-    If (-NOT ($env:ConfigFile -and $env:RegexToReplace -and $env:NewString)) {
-        $message = ("{0}: Attempting to get the content of {1}." -f [datetime]::Now, $ConfigFile)
-        Write-Host $message; If ($LogFile) { $message | Out-File -FilePath $LogFile -Append }
-    }
-    Else {
-        ##log Running Datto RMM component, assigning variable values from the component.
-        $ConfigFile = $env:ConfigFile
-        $RegexToReplace = $env:RegexToReplace
-        $NewString = $env:NewString
-    }
-}
 
 $message = ("{0}: Attempting to get the content of {1}." -f [datetime]::Now, $ConfigFile)
 Write-Host $message; If ($LogFile) { $message | Out-File -FilePath $LogFile -Append }
