@@ -11,6 +11,7 @@
             - Added replication links to output.
             - Updated in-line documentation.
         V1.0.0.3 date: 2 August 2019
+        V1.0.0.4 date: 6 November 2019
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/ActiveDirectory/AdProperties
     .PARAMETER DcFqdn
@@ -760,6 +761,19 @@ Switch ($OnDomainController) {
         $message = ("{0}: Beginning script to get Active Directory properties. This script is running on a domain controller." -f [datetime]::Now)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile} Else {$message | Out-File -FilePath $logFile}
 
+        $message = ("{0}: Attempting to import ActiveDirectory PowerShell module." -f [datetime]::Now)
+        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+
+        Try {
+            Import-Module -Name ActiveDirectory -ErrorAction Stop
+        }
+        Catch {
+            $message = ("{0}: Error importing Active Directory PowerShell module: {1}" -f [datetime]::Now, $_.Exception.Message)
+            If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+            Exit 1
+        }
+
         $searchBase = (Get-ADRootDSE -Server $hostname).ConfigurationNamingContext
 
         $commandParams = @{
@@ -768,6 +782,19 @@ Switch ($OnDomainController) {
         }
     }
     $false {
+        $message = ("{0}: Attempting to import ActiveDirectory PowerShell module." -f [datetime]::Now)
+        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+
+        Try {
+            Import-Module -Name ActiveDirectory -ErrorAction Stop
+        }
+        Catch {
+            $message = ("{0}: Error importing Active Directory PowerShell module: {1}" -f [datetime]::Now, $_.Exception.Message)
+            If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+            Exit 1
+        }
+
         # Initialize variables.
         If ($DcFqdn) {$hostname = $DcFqdn} Else {$hostname = "##SYSTEM.HOSTNAME##"}
         If ($Credential) {$cred = $Credential} Else {$cred = New-Object System.Management.Automation.PSCredential ("##WMI.USER##", ('##WMI.PASS##' | ConvertTo-SecureString -AsPlainText -Force))}
