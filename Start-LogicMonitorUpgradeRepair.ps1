@@ -14,7 +14,6 @@
 
         There are no parameters.
 #>
-[CmdletBinding()]
 
 $message = ("{0}: Beginning {1}." -f [datetime]::Now, $MyInvocation.MyCommand)
 Write-Host $message
@@ -41,7 +40,7 @@ Catch {
 }
 
 If (Get-ChildItem -Path 'C:\Program Files (x86)\LogicMonitor\Agent\tmp') {
-    "sbwinproxy.exe", "sbwinproxy.exe" | ForEach-Object {
+    "sbshutdown.exe", "sbwinproxy.exe" | ForEach-Object {
         $message = ("{0}: Attempting to remove {1} from the lib directory, before copying in a new version." -f [datetime]::Now, $_)
         Write-Host $message
 
