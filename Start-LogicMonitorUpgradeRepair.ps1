@@ -8,7 +8,7 @@
         V1.0.0.0 date: 12 November 2019
             - Initial release
     .LINK
-        
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Start-LogicMonitorUpgradeRepair.ps1
     .EXAMPLE
         PS C:\> Start-LogicMonitorUpgradeRepair.ps1
 
