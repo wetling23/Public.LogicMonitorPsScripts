@@ -40,44 +40,33 @@ Catch {
     Exit 1
 }
 
-If (Get-ChildItem -Path 'C:\Program Files (x86)\LogicMonitor\Agent\tmp' -Include sbwinproxy.exe -Recurse) {
-    $message = ("{0}: Attempting to remove the sbwinproxy.exe file from the lib directory, before copying in a new version." -f [datetime]::Now, $MyInvocation.MyCommand)
-    Write-Host $message
-
-    Try {
-        Remove-Item -Path 'C:\Program Files (x86)\LogicMonitor\Agent\lib\sbwinproxy.exe' -Force -ErrorAction Stop
-    }
-    Catch {
-        $message = ("{0}: Unexpected error removing sbwinproxy.exe. To prevent errors, {1} will exit. The specific error is: {2}." -f [datetime]::Now, $MyInvocation.MyCommand, $_.Exception.Message)
+If (Get-ChildItem -Path 'C:\Program Files (x86)\LogicMonitor\Agent\tmp') {
+    "sbwinproxy.exe", "sbwinproxy.exe" | ForEach-Object {
+        $message = ("{0}: Attempting to remove {1} from the lib directory, before copying in a new version." -f [datetime]::Now, $_)
         Write-Host $message
 
-        Exit 1
-    }
+        Try {
+            Remove-Item -Path "C:\Program Files (x86)\LogicMonitor\Agent\lib\$_" -Force -ErrorAction Stop
+        }
+        Catch {
+            $message = ("{0}: Unexpected error removing the file. To prevent errors, {1} will exit. The specific error is: {2}." -f [datetime]::Now, $MyInvocation.MyCommand, $_.Exception.Message)
+            Write-Host $message
 
-    $message = ("{0}: Attempting to copy sbwinproxy.exe from the tmp directory, to the lib directory." -f [datetime]::Now, $MyInvocation.MyCommand)
-    Write-Host $message
+            Exit 1
+        }
 
-    Try {
-        Get-ChildItem -Path 'C:\Program Files (x86)\LogicMonitor\Agent\tmp' -Include sbwinproxy.exe -Recurse | Copy-Item -Destination 'C:\Program Files (x86)\LogicMonitor\Agent\lib' -Force -ErrorAction Stop
-    }
-    Catch {
-        $message = ("{0}: Unexpected error moving sbwinproxy.exe. To prevent errors, {1} will exit. The specific error is: {2}." -f [datetime]::Now, $MyInvocation.MyCommand, $_.Exception.Message)
+        $message = ("{0}: Attempting to copy {1} from the tmp directory, to the lib directory." -f [datetime]::Now, $_)
         Write-Host $message
 
-        Exit 1
-    }
+        Try {
+            Get-ChildItem -Path 'C:\Program Files (x86)\LogicMonitor\Agent\tmp' -Include $_ -Recurse | Copy-Item -Destination 'C:\Program Files (x86)\LogicMonitor\Agent\lib' -Force -ErrorAction Stop
+        }
+        Catch {
+            $message = ("{0}: Unexpected error copying the file. To prevent errors, {1} will exit. The specific error is: {2}." -f [datetime]::Now, $MyInvocation.MyCommand, $_.Exception.Message)
+            Write-Host $message
 
-    $message = ("{0}: Attempting to copy sbshutdown.exe from the tmp directory, to the lib directory." -f [datetime]::Now, $MyInvocation.MyCommand)
-    Write-Host $message
-
-    Try {
-        Get-ChildItem -Path 'C:\Program Files (x86)\LogicMonitor\Agent\tmp' -Include sbshutdown.exe -Recurse | Copy-Item -Destination 'C:\Program Files (x86)\LogicMonitor\Agent\lib' -Force -ErrorAction Stop
-    }
-    Catch {
-        $message = ("{0}: Unexpected error moving sbshutdown.exe. To prevent errors, {1} will exit. The specific error is: {2}." -f [datetime]::Now, $MyInvocation.MyCommand, $_.Exception.Message)
-        Write-Host $message
-
-        Exit 1
+            Exit 1
+        }
     }
 
     Try {
