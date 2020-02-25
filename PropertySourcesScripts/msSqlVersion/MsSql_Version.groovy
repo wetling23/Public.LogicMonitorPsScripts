@@ -1,3 +1,5 @@
+//Reads a Windows server registry and returns the installed version of SQL Server.
+//In LM Exchange under 4CJD4N.
 def hostname = hostProps.get('system.hostname')
 
 String regValue = ('reg query \"\\\\' + hostname + '\\HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Microsoft SQL Server\\Instance Names\\SQL\" -v MSSQLSERVER').execute().text
