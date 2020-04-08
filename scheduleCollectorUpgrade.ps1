@@ -176,7 +176,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
         }
     }
 
-    If (($SkipVersion) -and ($SkipVersion -eq ([string]($newestVersion.MajorVersion) + [string]$($(($newestVersion.minorVersion).ToString()).PadLeft(3, '0'))))) {
+    If (($SkipVersion) -and ($SkipVersion -eq ([string]($newestVersion.MajorVersion) + [string]($newestVersion.MinorVersion)) {
         $message = ("{0}: The user requested that {1} is skipped and the current version matches. No further action to take." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $SkipVersion)
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
