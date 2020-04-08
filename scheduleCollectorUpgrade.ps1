@@ -27,6 +27,7 @@
         V1.0.0.11 date: 21 October 2019
         V1.0.0.12 date: 22 October 2019
         V1.0.0.13 date: 11 December 2019
+        V1.0.0.14 date: 8 April 2020
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts
     .PARAMETER AccessId
@@ -97,7 +98,7 @@ Param (
     [string]$LogPath
 )
 
-$message = ("{0}: Beginning {1}." -f (Get-Date -Format s), $MyInvocation.MyCommand)
+$message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
 If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Info -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType First -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Info -Message $message }
 
 Try {
@@ -127,13 +128,13 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
 
     #region In-line functions.
     Function Get-RelevantHistory {
-        $message = ("{0}: Searching update histories." -f (Get-Date -Format s))
+        $message = ("{0}: Searching update histories." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
         Foreach ($history in $recentHistories) {
             Foreach ($collector in $downlevelCollectors) {
                 If ($collector.id -eq $history.collectorId) {
-                    $message = ("{0}: Found a matching history for {1}." -f (Get-Date -Format s), $collector.hostname)
+                    $message = ("{0}: Found a matching history for {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $collector.hostname)
                     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
                     $relevantHistory = [PSCustomObject]@{
@@ -150,25 +151,25 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     }
     #endregion in-line functions.
 
-    $message = ("{0}: Attempting to retrieve the most recent collector version, from LogicMonitor." -f (Get-Date -Format s))
+    $message = ("{0}: Attempting to retrieve the most recent collector version, from LogicMonitor." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     # Retrieve the most recent stable version (major and minor) of the collector software.
     $newestVersion = Get-LogicMonitorCollectorAvailableVersion @cmdParams | Where-Object { $_.stable -eq $true } | Sort-Object -Property minorVersion -Descending | Sort-Object -Property majorVersion -Descending | Select-Object -First 1
 
     If ($newestVersion) {
-        $message = ("{0}: The most recent collector version is {1}.{2}." -f (Get-Date -Format s), $newestVersion.MajorVersion, (($newestVersion.minorVersion).ToString()).PadLeft(3, '0'))
+        $message = ("{0}: The most recent collector version is {1}.{2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $newestVersion.MajorVersion, $newestVersion.minorVersion)
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
     }
     Else {
-        $message = ("{0}: Unable to determine the most recent collector version." -f (Get-Date -Format s))
+        $message = ("{0}: Unable to determine the most recent collector version." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
         Try {
             Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Failure: Collector Upgrade-Script Failure (version retrieval)' -To $ReportRecipient -Body ("Consult the Windows Application log on {1} for details." -f $env:COMPUTERNAME)
         }
         Catch {
-            $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipient, $_.Exception.Message)
+            $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ReportRecipient, $_.Exception.Message)
             If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
 
             Exit 1
@@ -176,24 +177,24 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     }
 
     If (($SkipVersion) -and ($SkipVersion -eq ([string]($newestVersion.MajorVersion) + [string]$($(($newestVersion.minorVersion).ToString()).PadLeft(3, '0'))))) {
-        $message = ("{0}: The user requested that {1} is skipped and the current version matches. No further action to take." -f (Get-Date -Format s), $SkipVersion)
+        $message = ("{0}: The user requested that {1} is skipped and the current version matches. No further action to take." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $SkipVersion)
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
         Exit 0
     }
 
-    $message = ("{0}: Attempting to retrieve downlevel collectors." -f (Get-Date -Format s))
+    $message = ("{0}: Attempting to retrieve downlevel collectors." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     # Get the downlevel collectors.
-    $downlevelCollectors = Get-LogicMonitorCollectors @cmdParams | Where-Object { ($_.Build -lt "$($newestVersion.majorVersion)$($($newestVersion.minorversion).tostring().PadLeft(3,'0'))") -and ($_.isDown -eq $false) } | Select-Object -First $CollectorCount
+    $downlevelCollectors = Get-LogicMonitorCollectors @cmdParams | Where-Object { ($_.Build -lt "$($newestVersion.majorVersion)$($newestVersion.minorVersion)") -and ($_.isDown -eq $false) } | Select-Object -First $CollectorCount
 
     If (($downlevelCollectors) -and ($downlevelCollectors -ne "Error")) {
-        $message = ("{0}: Found {1} downlevel collectors." -f (Get-Date -Format s), $downlevelCollectors.Count)
+        $message = ("{0}: Found {1} downlevel collectors." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $downlevelCollectors.Count)
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
     }
     ElseIf (-NOT($downlevelCollectors)) {
-        $message = ("{0}: All collectors appear to be at the current version. No further action to take." -f (Get-Date -Format s))
+        $message = ("{0}: All collectors appear to be at the current version. No further action to take." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
         Try {
@@ -202,14 +203,14 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
             Exit 0
         }
         Catch {
-            $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipient, $_.Exception.Message)
+            $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ReportRecipient, $_.Exception.Message)
             If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
 
             Exit 1
         }
     }
     Else {
-        $message = ("{0}: Unable to identify any downlevel collectors. No further action to take." -f (Get-Date -Format s))
+        $message = ("{0}: Unable to identify any downlevel collectors. No further action to take." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
         Try {
@@ -218,14 +219,14 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
             Exit 0
         }
         Catch {
-            $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipient, $_.Exception.Message)
+            $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ReportRecipient, $_.Exception.Message)
             If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
 
             Exit 1
         }
     }
 
-    $message = ("{0}: Attempting to send a pre-upgrade e-mail to {1}." -f (Get-Date -Format s), ($ReportRecipient -join ', '))
+    $message = ("{0}: Attempting to send a pre-upgrade e-mail to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), ($ReportRecipient -join ', '))
     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     # Sending pre-upgrade notification to the e-mail recipients.
@@ -233,52 +234,52 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
         Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Information: Collector Upgrade-Script beginning' -To $ReportRecipient -Body ("The following collectors are being upgraded:`n{0}." -f ($($downlevelCollectors.hostname) -join ', '))
     }
     Catch {
-        $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f (Get-Date -Format s), $ReportRecipient, $_.Exception.Message)
+        $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ReportRecipient, $_.Exception.Message)
         If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
 
         Exit 1
     }
 
     Foreach ($collector in $downlevelCollectors) {
-        $message = ("{0}: Attempting to schedule the upgrade of {1}." -f (Get-Date -Format s), $collector.hostname)
+        $message = ("{0}: Attempting to schedule the upgrade of {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $collector.hostname)
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
         $status = Update-LogicMonitorCollectorVersion @cmdParams -Id $collector.id -MajorVersion $newestVersion.MajorVersion -MinorVersion $newestVersion.MinorVersion | Select-Object onetimeUpgradeInfo
 
         If (-NOT($status.onetimeUpgradeInfo.startEpoch)) {
-            $message = ("{0}: It appears that the upgrade of {1} was not scheduled." -f (Get-Date -Format s), $collector.hostname)
+            $message = ("{0}: It appears that the upgrade of {1} was not scheduled." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $collector.hostname)
             If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
         }
         Else {
-            $message = ("{0}: Scheduled upgrade of {1} at {2}." -f (Get-Date -Format s), $collector.hostname, [timezone]::CurrentTimeZone.ToLocalTime(([datetime]'1/1/1970').AddSeconds($($status.onetimeUpgradeInfo.startEpoch))))
+            $message = ("{0}: Scheduled upgrade of {1} at {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $collector.hostname, [timezone]::CurrentTimeZone.ToLocalTime(([datetime]'1/1/1970').AddSeconds($($status.onetimeUpgradeInfo.startEpoch))))
             If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
         }
     }
 
-    $message = ("{0}: Waiting for {1} minutes, for the collectors to download and install the update." -f (Get-Date -Format s), $timeout.Minutes)
+    $message = ("{0}: Waiting for {1} minutes, for the collectors to download and install the update." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $timeout.Minutes)
     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     $stopwatch = [diagnostics.stopwatch]::StartNew()
     While ($stopwatch.elapsed -lt $timeout) {
         Start-Sleep -Seconds (($timeout.Minutes / 4) * 60)
 
-        $message = ("{0}: Elapsed time: {1}." -f (Get-Date -Format s), $stopwatch.elapsed)
+        $message = ("{0}: Elapsed time: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $stopwatch.elapsed)
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
     }
     $null = $stopwatch.Stop()
 
-    $message = ("{0}: Attempting to retrieve upgrade histories for the recently upgraded collectors." -f (Get-Date -Format s))
+    $message = ("{0}: Attempting to retrieve upgrade histories for the recently upgraded collectors." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     # Check for upgrade statuses.
     $recentHistories = Get-LogicMonitorCollectorUpgradeHistory @cmdParams | Sort-Object happenedOn | Select-Object -Last ($downlevelCollectors).count
 
     If ($recentHistories) {
-        $message = ("{0}: Retrieved upgrade histories." -f (Get-Date -Format s))
+        $message = ("{0}: Retrieved upgrade histories." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
     }
     Else {
-        $message = ("{0}: Unable to retrieve any upgrade histories." -f (Get-Date -Format s))
+        $message = ("{0}: Unable to retrieve any upgrade histories." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
     }
 
@@ -298,7 +299,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     Catch {
         $timer.Stop()
 
-        $message = ("{0}: Unexpected error sending the e-mail message to {1}. The script took {2} minutes to run. The specific error is: {3}" -f (Get-Date -Format s), $ReportRecipient, $timer.Elapsed.TotalMinutes, $_.Exception.Message)
+        $message = ("{0}: Unexpected error sending the e-mail message to {1}. The script took {2} minutes to run. The specific error is: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ReportRecipient, $timer.Elapsed.TotalMinutes, $_.Exception.Message)
         If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
 
         Exit 1
@@ -307,7 +308,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
 Catch {
     $timer.Stop()
 
-    $message = ("{0}: Unexpected error somewhere in {1}, which ran for {2} minutes. The specific error is: {3}" -f (Get-Date -Format s), $MyInvocation.MyCommand, $timer.Elapsed.TotalMinutes, $_.Exception.Message)
+    $message = ("{0}: Unexpected error somewhere in {1}, which ran for {2} minutes. The specific error is: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, $timer.Elapsed.TotalMinutes, $_.Exception.Message)
     If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
 
     Exit 1
