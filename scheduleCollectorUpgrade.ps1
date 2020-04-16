@@ -231,7 +231,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
 
     # Sending pre-upgrade notification to the e-mail recipients.
     Try {
-        Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Information: Collector Upgrade-Script beginning' -To $ReportRecipient -Body ("The following collectors are being upgraded:`n{0}." -f ($($downlevelCollectors.hostname) -join ', '))
+        Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Information: Collector Upgrade-Script beginning' -To $ReportRecipient -Body ("The following collectors are being upgraded:`r`n{0}" -f ($($downlevelCollectors.hostname | Out-String) -join '`r`n'))
     }
     Catch {
         $message = ("{0}: Unexpected error sending the e-mail message to {1}. The specific error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ReportRecipient, $_.Exception.Message)
@@ -240,18 +240,22 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
         Exit 1
     }
 
-    Foreach ($collector in $downlevelCollectors) {
-        $message = ("{0}: Attempting to schedule the upgrade of {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $collector.hostname)
+    If ($newestVersion.minorVersion.ToString().Length -eq 1) {
+        $newestVersion.minorVersion = ($newestVersion.minorVersion.ToString()).PadRight(3, "0")
+    }
+
+    $downlevelCollectors | ForEach-Object {
+        $message = ("{0}: Attempting to schedule the upgrade of {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.hostname)
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
-        $status = Update-LogicMonitorCollectorVersion @cmdParams -Id $collector.id -MajorVersion $newestVersion.MajorVersion -MinorVersion $newestVersion.MinorVersion | Select-Object onetimeUpgradeInfo
+        $status = Update-LogicMonitorCollectorVersion @cmdParams -Id $_.id -MajorVersion $newestVersion.MajorVersion -MinorVersion $newestVersion.MinorVersion | Select-Object onetimeUpgradeInfo
 
         If (-NOT($status.onetimeUpgradeInfo.startEpoch)) {
-            $message = ("{0}: It appears that the upgrade of {1} was not scheduled." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $collector.hostname)
+            $message = ("{0}: It appears that the upgrade of {1} was not scheduled." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.hostname)
             If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
         }
         Else {
-            $message = ("{0}: Scheduled upgrade of {1} at {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $collector.hostname, [timezone]::CurrentTimeZone.ToLocalTime(([datetime]'1/1/1970').AddSeconds($($status.onetimeUpgradeInfo.startEpoch))))
+            $message = ("{0}: Scheduled upgrade of {1} at {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.hostname, [timezone]::CurrentTimeZone.ToLocalTime(([datetime]'1/1/1970').AddSeconds($($status.onetimeUpgradeInfo.startEpoch))))
             If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
         }
     }
