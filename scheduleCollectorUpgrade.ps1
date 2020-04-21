@@ -155,7 +155,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     # Retrieve the most recent stable version (major and minor) of the collector software.
-    $newestVersion = Get-LogicMonitorCollectorAvailableVersion @cmdParams | Where-Object { $_.stable -eq $true } | Sort-Object -Property minorVersion -Descending | Sort-Object -Property majorVersion -Descending | Select-Object -First 1
+    $newestVersion = Get-LogicMonitorCollectorAvailableVersion @cmdParams | Where-Object { $_.stable -eq $true } | Sort-Object -Property releaseEpoch -Descending | Select-Object -First 1
 
     If ($newestVersion) {
         $message = ("{0}: The most recent collector version is {1}.{2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $newestVersion.MajorVersion, $newestVersion.minorVersion)
