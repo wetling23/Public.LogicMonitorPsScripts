@@ -241,7 +241,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     }
 
     If ($newestVersion.minorVersion.ToString().Length -eq 1) {
-        $newestVersion.minorVersion = ($newestVersion.minorVersion.ToString()).PadRight(3, "0")
+        $newestVersion.minorVersion = ($newestVersion.minorVersion.ToString()).PadLeft(3, "0")
     }
 
     $downlevelCollectors | ForEach-Object {
