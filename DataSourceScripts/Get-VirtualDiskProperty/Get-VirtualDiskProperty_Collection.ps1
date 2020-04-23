@@ -6,7 +6,7 @@
         V1.0.0.0 date: 23 April 2020
             - Initial release
     .LINK
-        
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Get-VirtualDiskProperty
 #>
 [CmdletBinding()]
 
