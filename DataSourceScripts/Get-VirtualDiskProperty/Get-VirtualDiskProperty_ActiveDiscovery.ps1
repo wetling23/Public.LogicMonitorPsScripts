@@ -3,11 +3,12 @@
         Get properties of virtual disks of the monitored device(s).
     .NOTES
         Author: Mike Hashemi
-        V1.0.0.0 date: 20 April 2020
+        V1.0.0.0 date: 23 April 2020
             - Initial release
     .LINK
         
 #>
+[CmdletBinding()]
 
 # Initialize variables.
 $computerName = '##system.hostname##'
@@ -18,7 +19,7 @@ If (Test-Path -Path "C:\Program Files (x86)\LogicMonitor\Agent\Logs" -ErrorActio
 Else {
     $logDirPath = "$([System.Environment]::SystemDirectory)" # Directory, into which the log file will be written.
 }
-$logFile = "$logDirPath\datasource-MonitorVirtualDisk-AD-$computerName.log"
+$logFile = "$logDirPath\datasource-GetVirtualDiskProperty-AD-$computerName.log"
 
 $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
 If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
@@ -67,38 +68,13 @@ If (-NOT(($computerName -eq $env:computerName) -or ($computerName -eq "127.0.0.1
 $message = ("{0}: Connecting to {1}, to retieve virtual disk information." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
 If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
-$response = Invoke-Command -ScriptBlock { Get-VirtualDisk } -Credential $cred -ComputerName $computer
+$response = Invoke-Command -ScriptBlock { Get-VirtualDisk } -Credential $cred -ComputerName $computername
 
 $message = ("{0}: Found {1} virtual disks on {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $response.Count, $computerName)
 If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
 $response | ForEach-Object {
-    "$($_.FriendlyName)##$($_.UniqueId)"
+    "$($_.UniqueId)##$($_.FriendlyName)"
 }
 
 Exit 0
-
-
-
-
-collection script below
-
-
-$friendlyName = "##WILDVALUE##"
-
-$response = Invoke-Command -ScriptBlock {
-    param(
-        $friendlyName
-    )
-
-    Get-VirtualDisk -FriendlyName $friendlyName
-} -Credential $cred -ComputerName $computer -ArgumentList $friendlyName
-
-$response | ForEach-Object {
-    If ($_.IsManualAttach) {
-        "IsManualAttach=1"
-    }
-    Else {
-        "IsManualAttach=0"
-    }
-}
