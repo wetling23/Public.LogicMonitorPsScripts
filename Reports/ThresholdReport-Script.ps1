@@ -236,7 +236,7 @@ Foreach ($device in $devices) {
 
 If ($OutputPath) {
     Try {
-        $group | Export-Csv -Path "$OutputPath\thresholdReport-$GroupName.csv" -ErrorAction Stop
+        $group | Export-Csv -Path "$OutputPath\thresholdReport-$GroupName.csv" -ErrorAction Stop -NoTypeInformation
     }
     Catch {
         $message = ("{0}: Unexpected error sending output to {1}. The specific error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $OutputPath, $_.Exception.Message)
