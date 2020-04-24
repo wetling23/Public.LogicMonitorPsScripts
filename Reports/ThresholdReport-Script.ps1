@@ -6,6 +6,7 @@
         V1.0.0.0 date: 3 September 2019
             - Initial release.
         V1.0.0.1 date: 31 October 2019
+        V1.0.0.2 date: 24 April 2020
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Reports/ThresholdReport-Script.ps1
     .PARAMETER AccessId
@@ -19,21 +20,21 @@
     .PARAMETER OutputPath
         When provided, the script will output the report to this path.
     .PARAMETER EventLogSource
-        Default value is "LogicMonitorThresholdReport" Represents the name of the desired source, for Event Log logging.
-    .PARAMETER BlockLogging
-        When this switch is included, the code will write output only to the host and will not attempt to write to the Event Log.
+        When included, (and when LogPath is null), represents the event log source for the Application log. If no event log source or path are provided, output is sent only to the host.
+    .PARAMETER LogPath
+        When included (when EventLogSource is null), represents the file, to which the cmdlet will output will be logged. If no path or event log source are provided, output is sent only to the host.
     .EXAMPLE
-        PS C:\> DeviceThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name>
+        PS C:\> DeviceThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -Verbose -EventLogSource LmReport
 
-        In this example, the script gets all devices from LogicMonitor and generates a threshold report for them. Output is written to the Windows Application log with the default event source.
+        In this example, the script gets all devices from LogicMonitor and generates a threshold report for them. Verbose logging is written to the console host and Windows Application log with the "LmReport" event source.
     .EXAMPLE
-        PS C:\> DeviceThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -GroupName "Acme Inc" -BlockLogging -Verbose
+        PS C:\> DeviceThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -GroupName "Acme Inc" -Verbose -LogPath C:\Temp\log.txt
 
-        In this example, the script gets all devices from LogicMonitor, in the "Acme Inc" group and generates a threshold report for them. Verbose output is written only to the console host.
+        In this example, the script gets all devices from LogicMonitor, in the "Acme Inc" group and generates a threshold report for them. Verbose logging is written to the console host and C:\Temp\log.txt.
     .EXAMPLE
         PS C:\> DeviceThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -GroupName "Customer/Servers" -OutputPath C:\temp
 
-        In this example, the script gets all devices from LogicMonitor, in the "Acme Inc" servers group and generates a threshold report for them. Output is written to the Windows Application log with the default event source. The results are written to C:\temp.
+        In this example, the script gets all devices from LogicMonitor, in the "Customers/Servers" servers group and generates a threshold report for them. Limited logging is written to the console host only. The results are written to C:\temp.
 #>
 [CmdletBinding()]
 Param (
@@ -59,64 +60,77 @@ Param (
         })]
     [System.IO.DirectoryInfo]$OutputPath,
 
-    [string]$EventLogSource = 'LogicMonitorThresholdReport',
+    [string]$EventLogSource,
 
-    [switch]$BlockLogging
+    [string]$LogPath
 )
-
-#Requires -RunAsAdministrator
 #Requires -Modules LogicMonitor
 
-If (-NOT($BlockLogging)) {
-    $return = Add-EventLogSource -EventLogSource $EventLogSource
-
-    If ($return -ne "Success") {
-        $message = ("{0}: Unable to add event source ({1}). No logging will be performed." -f [datetime]::Now, $EventLogSource)
-        Write-Host $message
-
-        $BlockLogging = $True
-    }
-}
-
-$message = ("{0}: Beginning {1}." -f [datetime]::Now, $MyInvocation.MyCommand)
-If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
+$message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
+If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Info -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType First -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType First -Message $message }
 
 # Initialize variables.
 $group = [System.Collections.Generic.List[PSObject]]::new()
 $progressCounter = 0
 $httpVerb = 'GET'
 
-If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') {
+If ($PSBoundParameters['Verbose']) {
     $commandParams = @{
-        Verbose        = $true
-        EventLogSource = $EventLogSource
+        Verbose     = $true
+        AccessId    = $AccessId
+        AccessKey   = $AccessKey
+        AccountName = $AccountName
+    }
+
+    If ($EventLogSource -and (-NOT $LogPath)) {
+        $CommandParams.Add('EventLogSource', $EventLogSource)
+    }
+    ElseIf ($LogPath -and (-NOT $EventLogSource)) {
+        $CommandParams.Add('LogPath', $LogPath)
     }
 }
 Else {
-    $commandParams = @{EventLogSource = $EventLogSource }
+    If ($EventLogSource -and (-NOT $LogPath)) {
+        $commandParams = @{
+            EventLogSource = $EventLogSource
+            AccessId       = $AccessId
+            AccessKey      = $AccessKey
+            AccountName    = $AccountName
+        }
+    }
+    ElseIf ($LogPath -and (-NOT $EventLogSource)) {
+        $commandParams = @{
+            LogPath     = $LogPath
+            AccessId    = $AccessId
+            AccessKey   = $AccessKey
+            AccountName = $AccountName
+        }
+    }
 }
 
-$allLmDevices = Get-LogicMonitorDevice -AccessId $AccessId -AccessKey $AccessKey -AccountName $AccountName @commandParams
+$allLmDevices = Get-LogicMonitorDevice @commandParams
 
 If ($allLmDevices -eq "Error") {
-    $message = ("{0}: Too few devices retrieved. To prevent errors, {1} will exit." -f [datetime]::Now, $MyInvocation.MyCommand)
-    If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417 }
+    $message = ("{0}: Too few devices retrieved. To prevent errors, {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
+    If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
 
     Exit 1
 }
 
 If ($GroupName) {
-    $message = ("{0}: Filtering for devices in group {1}." -f [datetime]::Now, $GroupName)
-    If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
+    $message = ("{0}: Filtering for devices in group {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $GroupName)
+    If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     $devices = ($allLmDevices).Where({ ($_.systemProperties.name -eq 'system.groups') -and ($_.systemProperties.value -match $GroupName) })
 
-    $message = ("{0}: Found {1} devices in group {2}." -f [datetime]::Now, $devices.Count, $GroupName)
-    If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
+    Remove-Variable allLmDevices -Force
+
+    $message = ("{0}: Found {1} devices in group {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $devices.Count, $GroupName)
+    If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 }
 Else {
-    $message = ("{0}: No device filter applied. There are {1} devices." -f [datetime]::Now, $allLmDevices.Count)
-    If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
+    $message = ("{0}: No device filter applied. There are {1} devices." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $allLmDevices.Count)
+    If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     $devices = $allLmDevices
 
@@ -125,8 +139,12 @@ Else {
 
 Foreach ($device in $devices) {
     $progressCounter++
-    $message = ("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++`r`n{0}: Working on {1}. This is device {2} of {3}." -f [datetime]::Now, $device.displayName, $progressCounter, $devices.count)
-    If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
+
+    $message = ("{0}: ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+    If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
+
+    $message = ("{0}: Working on {1}. This is device {2} of {3}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $device.displayName, $progressCounter, $devices.count)
+    If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     $resourcePath = "/device/devices/$($device.id)/instances"
     $url = "https://$AccountName.logicmonitor.com/santaba/rest$resourcePath"
@@ -217,19 +235,18 @@ Foreach ($device in $devices) {
 }
 
 If ($OutputPath) {
-    $file = "thresholdReport-$GroupName.csv"
     Try {
-        $group | Export-Csv -Path "$OutputPath\$file" -ErrorAction Stop
+        $group | Export-Csv -Path "$OutputPath\thresholdReport-$GroupName.csv" -ErrorAction Stop
     }
     Catch {
-        $message = ("{0}: Unexpected error sending output to {1}. The specific error is: {2}" -f [datetime]::Now, $OutputPath, $_.Exception.Message)
-        If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Error -Message $message -EventId 5417 }
+        $message = ("{0}: Unexpected error sending output to {1}. The specific error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $OutputPath, $_.Exception.Message)
+        If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
 
         Exit 1
     }
 
-    $message = ("{0}: Sent output to {1}." -f [datetime]::Now, "$OutputPath\$file")
-    If (($BlockLogging) -AND (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue')) { Write-Verbose $message } ElseIf (($PSBoundParameters['Verbose']) -or ($VerbosePreference -eq 'Continue')) { Write-Verbose $message; Write-EventLog -LogName Application -Source $EventLogSource -EntryType Information -Message $message -EventId 5417 }
+    $message = ("{0}: Sent output to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), "$OutputPath\$file")
+    If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     Exit 0
 }
