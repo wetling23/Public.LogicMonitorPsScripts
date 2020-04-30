@@ -158,7 +158,8 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     $newestVersion = Get-LogicMonitorCollectorAvailableVersion @cmdParams | Where-Object { $_.stable -eq $true } | Sort-Object -Property releaseEpoch -Descending | Select-Object -First 1
 
     If ($newestVersion) {
-        $message = ("{0}: The most recent collector version is {1}.{2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $newestVersion.MajorVersion, $newestVersion.minorVersion)
+        # LogicMonitor uses XX.00X for GA collector releases and XX.X0X for EA collectors. I pad to the left, so that we get three places after the dot.
+        $message = ("{0}: The most recent collector version is {1}.{2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $newestVersion.MajorVersion, ($newestVersion.minorVersion.ToString()).PadLeft(3, "0"))
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
     }
     Else {
@@ -187,7 +188,8 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     # Get the downlevel collectors.
-    $downlevelCollectors = Get-LogicMonitorCollectors @cmdParams | Where-Object { ($_.Build -lt "$($newestVersion.majorVersion)$($newestVersion.minorVersion)") -and ($_.isDown -eq $false) } | Select-Object -First $CollectorCount
+    # Need to pad here, so that the build number is correct (e.g. 28005 vs. 285).
+    $downlevelCollectors = Get-LogicMonitorCollectors @cmdParams | Where-Object { ($_.Build -lt "$($newestVersion.majorVersion)$(($newestVersion.minorVersion.ToString()).PadLeft(3, "0"))") -and ($_.isDown -eq $false) } | Select-Object -First $CollectorCount
 
     If (($downlevelCollectors) -and ($downlevelCollectors -ne "Error")) {
         $message = ("{0}: Found {1} downlevel collectors." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $downlevelCollectors.Count)
