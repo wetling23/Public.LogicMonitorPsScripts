@@ -7,7 +7,7 @@
         V1.0.0.0 date: 1 May 2020
             - Initial release.
     .LINK
-        
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/PropertySourcesScripts/meraki
 #>
 [CmdletBinding()]
 param ()
