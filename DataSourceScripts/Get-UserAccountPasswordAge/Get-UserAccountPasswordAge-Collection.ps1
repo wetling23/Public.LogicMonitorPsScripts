@@ -39,7 +39,7 @@ If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Wri
 # Initialize variables.
 $password = @'
 ##wmi.pass##
-'@
+'@ # Using a here string to deal with special characters in the string.
 If (-NOT($Username)) {
     $message = ("{0}: No username provided, attempting to retrieve from LogicMonitor." -f [datetime]::Now)
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
