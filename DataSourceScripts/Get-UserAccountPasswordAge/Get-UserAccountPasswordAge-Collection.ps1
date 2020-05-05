@@ -5,6 +5,7 @@
         Author: Mike Hashemi
         V1.0.0.0 date: 22 October 2019
             - Initial release.
+        V1.0.0.1 date: 5 May 2020
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Get-UserAccountPasswordAge
     .PARAMETER Username
@@ -36,6 +37,9 @@ If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Wri
 
 #region Setup
 # Initialize variables.
+$password = @'
+##wmi.pass##
+'@
 If (-NOT($Username)) {
     $message = ("{0}: No username provided, attempting to retrieve from LogicMonitor." -f [datetime]::Now)
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
@@ -48,11 +52,15 @@ If (-NOT($TargetComputer)) {
 
     $TargetComputer = '##system.hostname##'
 }
-If (-NOT($Credential)) {
+If (('##system.collector##' -eq "true") -and (-NOT $Credential)) {
+    $message = ("{0}: Running on a collector device, no credential required." -f [datetime]::Now)
+    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+}
+Else {
     $message = ("{0}: No credential provided, attempting to retrieve from LogicMonitor." -f [datetime]::Now)
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
-    $Credential = New-Object System.Management.Automation.PSCredential ('##wmi.user##', (ConvertTo-SecureString -String '##wmi.pass##' -AsPlainText -Force))
+    $Credential = New-Object System.Management.Automation.PSCredential ('##wmi.user##', (ConvertTo-SecureString -String $password -AsPlainText -Force))
 }
 #endregion Setup
 
