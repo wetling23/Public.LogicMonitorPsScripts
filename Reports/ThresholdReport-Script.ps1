@@ -96,6 +96,7 @@ Else {
             AccessId       = $AccessId
             AccessKey      = $AccessKey
             AccountName    = $AccountName
+            Verbose        = $False
         }
     }
     ElseIf ($LogPath -and (-NOT $EventLogSource)) {
@@ -104,6 +105,7 @@ Else {
             AccessId    = $AccessId
             AccessKey   = $AccessKey
             AccountName = $AccountName
+            Verbose     = $False
         }
     }
 }
