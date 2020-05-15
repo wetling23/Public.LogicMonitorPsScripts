@@ -127,6 +127,8 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     }
 
     #region In-line functions.
+    <#
+    #deprecated, to be removed later: 
     Function Get-RelevantHistory {
         $message = ("{0}: Searching update histories." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
@@ -148,7 +150,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
                 }
             }
         }
-    }
+    }#>
     #endregion in-line functions.
 
     $message = ("{0}: Attempting to retrieve the most recent collector version, from LogicMonitor." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
@@ -278,7 +280,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     # Check for upgrade statuses.
-    $recentHistories = Get-LogicMonitorCollectorUpgradeHistory @cmdParams | Sort-Object happenedOn | Select-Object -Last ($downlevelCollectors).count
+    $recentHistories = Get-LogicMonitorCollectorUpgradeHistory @cmdParams -Version "$($newestVersion.MajorVersion).$($newestVersion.MinorVersion)" | Sort-Object happenedOn | Select-Object -Last ($downlevelCollectors).count
 
     If ($recentHistories) {
         $message = ("{0}: Retrieved upgrade histories." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
@@ -286,10 +288,11 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     }
     Else {
         $message = ("{0}: Unable to retrieve any upgrade histories." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-        If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
+        If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message } }
     }
 
-    $reportContent = Get-RelevantHistory
+    #deprecated, to be removed later: $reportContent = Get-RelevantHistory
+    $relevantHistory = $recentHistories | Where-Object { $_.collectorId -in $downlevelCollectors.id }
 
     Try {
         Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Success: Collector Upgrade-Script' -To $ReportRecipient `
