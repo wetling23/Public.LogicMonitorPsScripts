@@ -28,6 +28,7 @@
         V1.0.0.12 date: 22 October 2019
         V1.0.0.13 date: 11 December 2019
         V1.0.0.14 date: 8 April 2020
+        V1.0.0.15 date: 15 May 2020
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts
     .PARAMETER AccessId
