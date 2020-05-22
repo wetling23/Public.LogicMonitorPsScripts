@@ -280,11 +280,15 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     $message = ("{0}: Attempting to retrieve upgrade histories for the recently upgraded collectors." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
-    # Check for upgrade statuses.
-    $recentHistories = Get-LogicMonitorCollectorUpgradeHistory @cmdParams -Version "$($newestVersion.MajorVersion).$($newestVersion.MinorVersion)" | Sort-Object happenedOn | Select-Object -Last ($downlevelCollectors).count
+    # Check for upgrade statuses. Get histories that are for the current version, and are in the list of downlevel collectors and happened in the last "$InstallWaitTime + 5" minutes ago.
+    $relevantHistory = (Get-LogicMonitorCollectorUpgradeHistory @cmdParams -Version "$($newestVersion.MajorVersion).$($newestVersion.MinorVersion)").Where({ ($_.collectorId -in $downlevelCollectors.Id) -and ($_.happenedOn -gt ([Math]::Round((New-TimeSpan -start (Get-Date -Date "1/1/1970") -end ((Get-Date).AddMinutes(-($InstallWaitTime + 5))).ToUniversalTime()).TotalSeconds))) })
 
-    If ($recentHistories) {
+    If (($relevantHistory) -and ($relevantHistory -ne "Error")) {
         $message = ("{0}: Retrieved upgrade histories." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+        If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
+    }
+    ElseIf ($relevantHistory) {
+        $message = ("{0}: Error identifying histories." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
     }
     Else {
@@ -293,11 +297,12 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     }
 
     #deprecated, to be removed later: $reportContent = Get-RelevantHistory
-    $relevantHistory = $recentHistories | Where-Object { $_.collectorId -in $downlevelCollectors.id }
+    #the following line is also deprecated, I think. I rolled it into the Get-LogicMonitorCollectorUPgradeHistory line:
+    #$relevantHistory = $recentHistories | Where-Object { $_.collectorId -in $downlevelCollectors.id }
 
     Try {
         Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Success: Collector Upgrade-Script' -To $ReportRecipient `
-            -Body (($reportContent | Select-Object @{label = 'CollectorId'; expression = { $_.CollectorId } }, @{label = 'Status'; expression = { $_.Status } }, @{label = 'HappenedOn'; expression = { $_.HappenedOn } }, @{label = 'Notes'; expression = { $_.Notes } } | ConvertTo-Html -Head $header -Property 'CollectorId', 'Status', 'HappenedOn', 'Notes') | Out-String)
+            -Body (($relevantHistory | Select-Object @{label = 'CollectorId'; expression = { $_.CollectorId } }, @{label = 'Status'; expression = { $_.Status } }, @{label = 'HappenedOn'; expression = { $_.HappenedOn } }, @{label = 'Notes'; expression = { $_.Notes } } | ConvertTo-Html -Head $header -Property 'CollectorId', 'Status', 'HappenedOn', 'Notes') | Out-String)
 
         $timer.Stop()
 
