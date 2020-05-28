@@ -281,43 +281,77 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     # Check for upgrade statuses. Get histories that are for the current version, and are in the list of downlevel collectors and happened in the last "$InstallWaitTime + 5" minutes ago.
-    $relevantHistory = (Get-LogicMonitorCollectorUpgradeHistory @cmdParams -Version "$($newestVersion.MajorVersion).$($newestVersion.MinorVersion)").Where({ ($_.collectorId -in $downlevelCollectors.Id) -and ($_.happenedOn -gt ([Math]::Round((New-TimeSpan -start (Get-Date -Date "1/1/1970") -end ((Get-Date).AddMinutes(-($InstallWaitTime + 5))).ToUniversalTime()).TotalSeconds))) })
+    $relevantHistory = (Get-LogicMonitorCollectorUpgradeHistory @cmdParams -Version "$($newestVersion.MajorVersion).$($newestVersion.MinorVersion)").Where( { ($_.collectorId -in $downlevelCollectors.Id) -and ($_.happenedOn -gt ([Math]::Round((New-TimeSpan -start (Get-Date -Date "1/1/1970") -end ((Get-Date).AddMinutes( - ($InstallWaitTime + 120))).ToUniversalTime()).TotalSeconds))) })
 
-    If (($relevantHistory) -and ($relevantHistory -ne "Error")) {
+    If (($relevantHistory.Count -ge 1) -and ($relevantHistory -ne "Error")) {
         $message = ("{0}: Retrieved upgrade histories." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
+
+        Try {
+            Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Success: Collector Upgrade-Script' -To $ReportRecipient `
+                -Body (($relevantHistory | Select-Object @{label = 'CollectorId'; expression = { $_.CollectorId } }, @{label = 'Status'; expression = { $_.Status } }, @{label = 'HappenedOn'; expression = { $_.HappenedOn } }, @{label = 'Notes'; expression = { $_.Notes } } | ConvertTo-Html -Head $header -Property 'CollectorId', 'Status', 'HappenedOn', 'Notes') | Out-String)
+
+            $timer.Stop()
+
+            $message = ("{0}: {1} completed successfully. The script took {2} minutes to run." -f [datetime]::Now, $MyInvocation.MyCommand, $timer.Elapsed.TotalMinutes)
+            If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Info -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Info -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Info -Message $message }
+
+            Exit 0
+        }
+        Catch {
+            $timer.Stop()
+
+            $message = ("{0}: Unexpected error sending the e-mail message to {1}. The script took {2} minutes to run. The specific error is: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ReportRecipient, $timer.Elapsed.TotalMinutes, $_.Exception.Message)
+            If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
+
+            Exit 1
+        }
     }
     ElseIf ($relevantHistory) {
         $message = ("{0}: Error identifying histories." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
+
+        Try {
+            Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Unknown: Collector Upgrade-Script' -To $ReportRecipient -Body "Error retrieving collector upgrade histories."
+
+            $timer.Stop()
+
+            $message = ("{0}: {1} completed successfully. The script took {2} minutes to run." -f [datetime]::Now, $MyInvocation.MyCommand, $timer.Elapsed.TotalMinutes)
+            If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Info -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Info -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Info -Message $message }
+
+            Exit 0
+        }
+        Catch {
+            $timer.Stop()
+
+            $message = ("{0}: Unexpected error sending the e-mail message to {1}. The script took {2} minutes to run. The specific error is: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ReportRecipient, $timer.Elapsed.TotalMinutes, $_.Exception.Message)
+            If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
+
+            Exit 1
+        }
     }
     Else {
         $message = ("{0}: Unable to retrieve any upgrade histories." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message } }
-    }
 
-    #deprecated, to be removed later: $reportContent = Get-RelevantHistory
-    #the following line is also deprecated, I think. I rolled it into the Get-LogicMonitorCollectorUPgradeHistory line:
-    #$relevantHistory = $recentHistories | Where-Object { $_.collectorId -in $downlevelCollectors.id }
+        Try {
+            Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Unknown: Collector Upgrade-Script' -To $ReportRecipient -Body "Unable to retrieve collector upgrade histories."
 
-    Try {
-        Send-MailMessage -BodyAsHtml -From $SenderEmail -SmtpServer $MailRelay -Subject 'Success: Collector Upgrade-Script' -To $ReportRecipient `
-            -Body (($relevantHistory | Select-Object @{label = 'CollectorId'; expression = { $_.CollectorId } }, @{label = 'Status'; expression = { $_.Status } }, @{label = 'HappenedOn'; expression = { $_.HappenedOn } }, @{label = 'Notes'; expression = { $_.Notes } } | ConvertTo-Html -Head $header -Property 'CollectorId', 'Status', 'HappenedOn', 'Notes') | Out-String)
+            $timer.Stop()
 
-        $timer.Stop()
+            $message = ("{0}: {1} completed successfully. The script took {2} minutes to run." -f [datetime]::Now, $MyInvocation.MyCommand, $timer.Elapsed.TotalMinutes)
+            If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Info -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Info -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Info -Message $message }
 
-        $message = ("{0}: {1} completed successfully. The script took {2} minutes to run." -f [datetime]::Now, $MyInvocation.MyCommand, $timer.Elapsed.TotalMinutes)
-        If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Info -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Info -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Info -Message $message }
+            Exit 0
+        }
+        Catch {
+            $timer.Stop()
 
-        Exit 0
-    }
-    Catch {
-        $timer.Stop()
+            $message = ("{0}: Unexpected error sending the e-mail message to {1}. The script took {2} minutes to run. The specific error is: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ReportRecipient, $timer.Elapsed.TotalMinutes, $_.Exception.Message)
+            If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
 
-        $message = ("{0}: Unexpected error sending the e-mail message to {1}. The script took {2} minutes to run. The specific error is: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ReportRecipient, $timer.Elapsed.TotalMinutes, $_.Exception.Message)
-        If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
-
-        Exit 1
+            Exit 1
+        }
     }
 }
 Catch {
