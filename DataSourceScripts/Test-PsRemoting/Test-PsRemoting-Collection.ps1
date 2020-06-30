@@ -5,7 +5,7 @@
         V1.0.0.0 date: 30 June 2020
             - Based on the function from Lee Holmes: https://www.leeholmes.com/blog/2009/11/20/testing-for-powershell-remoting-test-psremoting/
     .LINK
-        
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Test-PsRemoting
     .PARAMETER ComputerName
         Represents the name of the device, on which to test PS Remoting.
     .PARAMETER Credential
