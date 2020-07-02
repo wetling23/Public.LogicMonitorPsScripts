@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<feed  version="1.0" hasPendingRequests="false" >
+  <company></company>
+  <status>200</status>
+  <errmsg>OK</errmsg>
+  <interval>0</interval>
+    <entry type="predatasource">
+        <version>1593712225</version>
+        <name>Test_PsRemoting</name>
+        <displayedas>PS Remoting Enabled</displayedas>
+        <description>Test if PS Remoting is enabled.</description>
+        <collector>script</collector>
+        <hasMultiInstances>false</hasMultiInstances>
+        <schedule>14400</schedule>
+        <appliesTo>isWindows()</appliesTo>
+        <wildcardauto>false</wildcardauto>
+        <wildcardpersist>false</wildcardpersist>
+        <wildcardlinuxscript></wildcardlinuxscript>
+        <wildcardlinuxcmdline></wildcardlinuxcmdline>
+        <wildcardwinscript></wildcardwinscript>
+        <wildcardwincmdline></wildcardwincmdline>
+        <wildcardgroovyscript></wildcardgroovyscript>
+        <wildcardschedule>1440</wildcardschedule>
+        <wildcarddisable>false</wildcarddisable>
+        <wildcarddeleteinactive>false</wildcarddeleteinactive>
+        <agdmethod>none</agdmethod>
+        <agdparams></agdparams>
+        <group></group>
+        <tags></tags>
+        <technology>Test if PS remoting is enabled on a local or remote machine, using Invoke-Command.</technology>
+        <adlist><![CDATA[{"agdmethod":"none","agdparams":"","id":0,"filters":[],"params":{}}]]></adlist>
+        <schemaVersion>2</schemaVersion>
+        <dataSourceType>1</dataSourceType>
+        <attributes>
+        <attribute>
+            <name>scripttype</name>
+            <value>powerShell</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>scriptgroovy</name>
+            <value>&#60;#
+    .DESCRIPTION
+        Test if PS remoting is enabled on a local or remote machine, using Invoke-Command.
+    .NOTES
+        V1.0.0.0 date: 30 June 2020
+            - Based on the function from Lee Holmes: https://www.leeholmes.com/blog/2009/11/20/testing-for-powershell-remoting-test-psremoting/
+    .LINK
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Test-PsRemoting
+    .PARAMETER ComputerName
+        Represents the name of the device, on which to test PS Remoting.
+    .PARAMETER Credential
+        When testing a remote machine, this credential represents a user with access to remotely manage the target computer.
+    .PARAMETER LocalCheck
+        Switch used to indicate whether or not the value of -ComputerName is the local machine.
+    .PARAMETER LogFile
+        Path to which logging will be written (including file name).
+#&#62;
+Function Test-PsRemoting {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ComputerName,
+
+        [System.Management.Automation.PSCredential]$Credential,
+
+        [switch]$LocalCheck,
+
+        [string]$LogFile
+    )
+
+    $message = (&#34;{0}: Running Invoke-Command.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;))
+    If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $LogFile -Append } Else { $message | Out-File -FilePath $LogFile -Append }
+
+    Try {
+        If ($LocalCheck) {
+            $result = Invoke-Command -ComputerName $ComputerName { 1 } -ErrorAction Stop
+        }
+        Else {
+            $result = Invoke-Command -Credential $Credential -ComputerName $ComputerName { 1 } -ErrorAction Stop
+        }
+    }
+    Catch {
+        $message = (&#34;{0}: Error: {1}&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $_.Exception.Message)
+        If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $LogFile -Append } Else { $message | Out-File -FilePath $LogFile -Append }
+
+        Return $false
+    }
+
+    If ($result -ne 1) {
+        $message = (&#34;{0}: Remoting to {1} returned an unexpected result.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $ComputerName)
+        If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $LogFile -Append } Else { $message | Out-File -FilePath $LogFile -Append }
+
+        Return $false
+    }
+
+    $true
+}
+
+Try {
+    # Initialize variables.
+    $ComputerName = &#34;##SYSTEM.HOSTNAME##&#34;
+    $Credential = New-Object System.Management.Automation.PSCredential(&#34;##WMI.USER##&#34;, (&#39;##WMI.PASS##&#39; | ConvertTo-SecureString -AsPlainText -Force -ErrorAction Stop))
+
+    If (Test-Path -Path &#34;C:\Program Files (x86)\LogicMonitor\Agent\Logs&#34; -ErrorAction SilentlyContinue) {
+        $logDirPath = &#34;C:\Program Files (x86)\LogicMonitor\Agent\Logs&#34; # Directory, into which the log file will be written.
+    }
+    Else {
+        $logDirPath = &#34;$([System.Environment]::SystemDirectory)&#34; # Directory, into which the log file will be written.
+    }
+    $logFile = &#34;$logDirPath\datasource-TestPsRemoting-collection-$ComputerName.log&#34;
+
+    $message = (&#34;{0}: Beginning {1}.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $MyInvocation.MyCommand)
+    If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
+
+    $message = (&#34;{0}: Checking TrustedHosts.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;))
+    If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    # If necessary, update TrustedHosts.
+    If (-NOT(($ComputerName -eq $env:ComputerName) -or ($ComputerName -eq &#34;127.0.0.1&#34;))) {
+        If (((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -notmatch $ComputerName) -and ((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -ne &#34;*&#34;)) {
+            $message = (&#34;{0}: Adding {1} to TrustedHosts.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $ComputerName)
+            If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+            Try {
+                Set-Item -Path WSMan:\localhost\Client\TrustedHosts -Value $ComputerName -Concatenate -Force -ErrorAction Stop
+            }
+            Catch {
+                $message = (&#34;{0}: Unexpected error updating TrustedHosts: {1}.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $_.Exception.Message)
+                If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+                Exit 1
+            }
+        }
+        Else {
+            $message = (&#34;{0}: {1} is already in TrustedHosts.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $ComputerName)
+            If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+        }
+    }
+
+    If (($ComputerName -eq $env:ComputerName) -or ($ComputerName -eq &#34;127.0.0.1&#34;)) {
+        $result = Test-PsRemoting -ComputerName $ComputerName -LogFile $logFile -LocalCheck
+    }
+    Else {
+        $result = Test-PsRemoting -ComputerName $ComputerName -LogFile $logFile -Credential $Credential
+    }
+
+    If ($result -eq $false) {
+        $message = (&#34;{0}: PS remoting is not enabled on {1}.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $ComputerName)
+        If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+        Write-Host (&#34;PsRemotingEnabled=0&#34;)
+    }
+    Else {
+        $message = (&#34;{0}: PS remoting is enabled on {1}.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $ComputerName)
+        If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+        Write-Host (&#34;PsRemotingEnabled=1&#34;)
+    }
+
+    Exit 0
+}
+Catch {
+    $message = (&#34;{0}: Unexpected error in {1}. The command was `&#34;{2}`&#34; and the specific error is: {3}&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $MyInvocation.MyCommand, $_.InvocationInfo.MyCommand.Name, $_.Exception.Message)
+    If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    Exit 1
+}</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>windowsscript</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>linuxscript</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>windowscmdline</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>linuxcmdline</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        </attributes>
+        <datapoints>
+        <datapoint>
+            <name>Enabled</name>
+            <dataType>7</dataType>
+            <type>2</type>
+            <postprocessormethod>regex</postprocessormethod>
+            <postprocessorparam>PsRemotingEnabled=(\d)</postprocessorparam>
+            <usevalue>output</usevalue>
+            <alertexpr></alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody></alertbody>
+            <enableanomalyalertsuppression></enableanomalyalertsuppression>
+            <adadvsettingenabled>false</adadvsettingenabled>
+            <warnadadvsetting></warnadadvsetting>
+            <erroradadvsetting></erroradadvsetting>
+            <criticaladadvsetting></criticaladadvsetting>
+            <description>Value of 1 == enabled
+Value of 2 == disabled</description>
+            <maxvalue></maxvalue>
+            <minvalue></minvalue>
+            <userparam1></userparam1>
+            <userparam2></userparam2>
+            <userparam3></userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        <datapoint>
+            <name>ScriptStatus</name>
+            <dataType>4</dataType>
+            <type>2</type>
+            <postprocessormethod>none</postprocessormethod>
+            <postprocessorparam></postprocessorparam>
+            <usevalue>exitCode</usevalue>
+            <alertexpr>!= 0 0</alertexpr>
+            <alertmissing>3</alertmissing>
+            <alertsubject>Script error: Test-PsRemoting</alertsubject>
+            <alertbody>The script in the Test_PsRemoting DataSource did not complete. The related ticket should be escalated to the Service Enablement team.
+
+Note that only one ticket is necessary, if the script fails on multiple hosts.</alertbody>
+            <enableanomalyalertsuppression></enableanomalyalertsuppression>
+            <adadvsettingenabled>false</adadvsettingenabled>
+            <warnadadvsetting></warnadadvsetting>
+            <erroradadvsetting></erroradadvsetting>
+            <criticaladadvsetting></criticaladadvsetting>
+            <description>Value 0 == Script ran fine
+Value 1 == Script error</description>
+            <maxvalue></maxvalue>
+            <minvalue></minvalue>
+            <userparam1></userparam1>
+            <userparam2></userparam2>
+            <userparam3></userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        </datapoints>
+        <graphs>
+        </graphs>
+        <overviewgraphs>
+        </overviewgraphs>
+        <scripts>
+        </scripts>
+    </entry>
+</feed>
