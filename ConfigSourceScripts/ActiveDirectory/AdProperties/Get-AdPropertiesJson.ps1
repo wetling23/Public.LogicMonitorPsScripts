@@ -32,7 +32,7 @@ Function Get-JsonFile {
     If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
     # Add the target device to TrustedHosts.
-    If (((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -notmatch $DcFqdn) -and ((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -ne "*") -and ($DcFqdn -ne "127.0.0.1")) {
+    If (($DcFqdn -notmatch (Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts) -and ((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -ne "*") -and ($DcFqdn -ne "127.0.0.1")) {
         $message = ("{0}: Adding {1} to TrustedHosts." -f (Get-Date -Format s), $hostDcFqdnname)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
