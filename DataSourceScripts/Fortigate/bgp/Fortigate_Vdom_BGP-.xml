@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<feed  version="1.0" hasPendingRequests="false" >
+  <company></company>
+  <status>200</status>
+  <errmsg>OK</errmsg>
+  <interval>0</interval>
+    <entry type="predatasource">
+        <version>1594829067</version>
+        <name>Fortigate_Vdom_BGP-</name>
+        <displayedas>BGP-</displayedas>
+        <description>As of 14 July 2020, the out-of-the-box version of the BGP- DataSource does not support VDOMs. This DataSource replaces the SNMP-type DataSource for devices with the custom.vdom property.</description>
+        <collector>script</collector>
+        <hasMultiInstances>true</hasMultiInstances>
+        <schedule>180</schedule>
+        <appliesTo>hasCategory(&#34;Fortigate&#34;) &#38;&#38; custom.vdom</appliesTo>
+        <wildcardauto>true</wildcardauto>
+        <wildcardpersist>false</wildcardpersist>
+        <wildcardlinuxscript>ad_script</wildcardlinuxscript>
+        <wildcardlinuxcmdline>type=&#34;powerShell&#34; </wildcardlinuxcmdline>
+        <wildcardwinscript>ad_script</wildcardwinscript>
+        <wildcardwincmdline>type=&#34;powerShell&#34; </wildcardwincmdline>
+        <wildcardgroovyscript>&#60;#
+    .DESCRIPTION
+        Uses the custom.vdom property to discover VDOM instances on Fortigate devices.
+    .NOTES
+        V1.0.0.0 date: 14 July 2020
+    .LINK
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Fortigate/bgp
+#&#62;
+
+$hostaddr = &#34;##SYSTEM.HOSTNAME##&#34;
+$community = &#34;##SNMP.COMMUNITY##&#34;
+$vdoms = &#34;##CUSTOM.VDOM##&#34;
+$port = &#34;##SNMP.PORT&#34;
+If ((&#34;##SNMP.VERSION##&#34;) -and (&#34;##SNMP.VERSION##&#34; -notmatch &#34;2c$&#34;)) { $snmpVersion = &#34;##SNMP.VERSION##&#34; } Else { $snmpVersion = &#39;v2c&#39; }
+If (($port) -and ($port -match &#34;^[\d]+$&#34;)) { $snmpPort = $port } Else { $snmpPort = &#39;161&#39; } # $port is defined and matches any whole number.
+
+If (Test-Path -Path &#34;${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs&#34; -ErrorAction SilentlyContinue) {
+    $logDirPath = &#34;${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs&#34; # Directory, into which the log file will be written.
+}
+Else {
+    $logDirPath = &#34;$([System.Environment]::SystemDirectory)&#34; # Directory, into which the log file will be written.
+}
+$logFile = &#34;$logDirPath\datasource-Fortigate_Vdom_Bgp-collection-$hostaddr.log&#34;
+
+$message = (&#34;{0}: Beginning {1}.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $MyInvocation.MyCommand)
+If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
+
+If ($vdoms -match &#34;,&#34;) { $vdoms = $vdoms.Split(&#39;,&#39;) }
+
+$message = (&#34;{0}: There are {1} vdoms on the device.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $vdoms.Count)
+If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
+
+$message = (&#34;{0}: Beginning snmpwalk, to get BGP peer instances.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;))
+If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+$vdoms | ForEach-Object {
+    $vdom = $_
+
+    $message = (&#34;{0}: Using the following settings:`r`n`tHost: {1}`r`n`tSNMP version: {2}`r`n`tPort: {3}`r`n`tCommunity: {4}`r`n`tVdom: {5}&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $hostaddr, $snmpVersion, $snmpPort, ($community -Replace &#34;[\w\W]&#34;, &#39;*&#39;), $vdom)
+    If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    $snmpwalkResult = (snmpwalk.exe -r:$hostaddr -$snmpVersion -p:$snmpPort -c:&#34;$community-$vdom&#34; -os:1.3.6.1.2.1.15.3.1.7 -op:1.3.6.1.2.1.15.3.1.8) | ConvertFrom-String -Delimiter &#34;,&#34; -PropertyNames oid, type, value
+
+    If ($snmpwalkResult) {
+        $message = (&#34;{0}: Found {1} instances.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $snmpwalkResult.Count)
+        If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+        $snmpwalkResult | Foreach-Object {
+            Write-Host &#34;$($_.value.Split(&#39;=&#39;)[-1])##$($_.value.Split(&#39;=&#39;)[-1])####$vdom&#34;
+        }
+
+        Exit 0
+    }
+    Else {
+        $message = (&#34;{0}: Found zero instances.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;))
+        If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+        Exit 0
+    }
+}</wildcardgroovyscript>
+        <wildcardschedule>1440</wildcardschedule>
+        <wildcarddisable>false</wildcarddisable>
+        <wildcarddeleteinactive>false</wildcarddeleteinactive>
+        <agdmethod>none</agdmethod>
+        <agdparams></agdparams>
+        <group></group>
+        <tags></tags>
+        <technology>The DataSource requires snmpwalk.exe and snmpget.exe (available at http://www.net-snmp.org/) in the system path.</technology>
+        <adlist><![CDATA[{"agdmethod":"none","method":"ad_script","agdparams":"","id":0,"filters":[],"params":{"type":"powerShell","groovyscript":"<#\r\n    .DESCRIPTION\r\n        Uses the custom.vdom property to discover VDOM instances on Fortigate devices.\r\n    .NOTES\r\n        V1.0.0.0 date: 14 July 2020\r\n    .LINK\r\n        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Fortigate/bgp\r\n#>\r\n\r\n$hostaddr = \"##SYSTEM.HOSTNAME##\"\r\n$community = \"##SNMP.COMMUNITY##\"\r\n$vdoms = \"##CUSTOM.VDOM##\"\r\n$port = \"##SNMP.PORT\"\r\nIf ((\"##SNMP.VERSION##\") -and (\"##SNMP.VERSION##\" -notmatch \"2c$\")) { $snmpVersion = \"##SNMP.VERSION##\" } Else { $snmpVersion = 'v2c' }\r\nIf (($port) -and ($port -match \"^[\\d]+$\")) { $snmpPort = $port } Else { $snmpPort = '161' } # $port is defined and matches any whole number.\r\n\r\nIf (Test-Path -Path \"${env:ProgramFiles(x86)}\\LogicMonitor\\Agent\\Logs\" -ErrorAction SilentlyContinue) {\r\n    $logDirPath = \"${env:ProgramFiles(x86)}\\LogicMonitor\\Agent\\Logs\" # Directory, into which the log file will be written.\r\n}\r\nElse {\r\n    $logDirPath = \"$([System.Environment]::SystemDirectory)\" # Directory, into which the log file will be written.\r\n}\r\n$logFile = \"$logDirPath\\datasource-Fortigate_Vdom_Bgp-collection-$hostaddr.log\"\r\n\r\n$message = (\"{0}: Beginning {1}.\" -f ([datetime]::Now).ToString(\"yyyy-MM-dd`THH:mm:ss\"), $MyInvocation.MyCommand)\r\nIf ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }\r\n\r\nIf ($vdoms -match \",\") { $vdoms = $vdoms.Split(',') }\r\n\r\n$message = (\"{0}: There are {1} vdoms on the device.\" -f ([datetime]::Now).ToString(\"yyyy-MM-dd`THH:mm:ss\"), $vdoms.Count)\r\nIf ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }\r\n\r\n$message = (\"{0}: Beginning snmpwalk, to get BGP peer instances.\" -f ([datetime]::Now).ToString(\"yyyy-MM-dd`THH:mm:ss\"))\r\nIf ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }\r\n\r\n$vdoms | ForEach-Object {\r\n    $vdom = $_\r\n\r\n    $message = (\"{0}: Using the following settings:`r`n`tHost: {1}`r`n`tSNMP version: {2}`r`n`tPort: {3}`r`n`tCommunity: {4}`r`n`tVdom: {5}\" -f ([datetime]::Now).ToString(\"yyyy-MM-dd`THH:mm:ss\"), $hostaddr, $snmpVersion, $snmpPort, ($community -Replace \"[\\w\\W]\", '*'), $vdom)\r\n    If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }\r\n\r\n    $snmpwalkResult = (snmpwalk.exe -r:$hostaddr -$snmpVersion -p:$snmpPort -c:\"$community-$vdom\" -os:1.3.6.1.2.1.15.3.1.7 -op:1.3.6.1.2.1.15.3.1.8) | ConvertFrom-String -Delimiter \",\" -PropertyNames oid, type, value\r\n\r\n    If ($snmpwalkResult) {\r\n        $message = (\"{0}: Found {1} instances.\" -f ([datetime]::Now).ToString(\"yyyy-MM-dd`THH:mm:ss\"), $snmpwalkResult.Count)\r\n        If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }\r\n\r\n        $snmpwalkResult | Foreach-Object {\r\n            Write-Host \"$($_.value.Split('=')[-1])##$($_.value.Split('=')[-1])####$vdom\"\r\n        }\r\n\r\n        Exit 0\r\n    }\r\n    Else {\r\n        $message = (\"{0}: Found zero instances.\" -f ([datetime]::Now).ToString(\"yyyy-MM-dd`THH:mm:ss\"))\r\n        If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }\r\n\r\n        Exit 0\r\n    }\r\n}"}}]]></adlist>
+        <schemaVersion>2</schemaVersion>
+        <dataSourceType>1</dataSourceType>
+        <attributes>
+        <attribute>
+            <name>scripttype</name>
+            <value>powerShell</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>scriptgroovy</name>
+            <value>&#60;#
+    .DESCRIPTION
+        Query BGP peer data from Fortigate devices configured with one or more VDOMs configured. 
+    .NOTES
+        V1.0.0.0 date: 14 July 2020
+    .LINK
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Fortigate/bgp
+#&#62;
+
+$hostaddr = &#34;##SYSTEM.HOSTNAME##&#34;
+$community = &#34;##SNMP.COMMUNITY##&#34;
+$vdom = &#34;##WILDVALUE2##&#34;
+$port = &#34;##SNMP.PORT&#34;
+$instance = &#34;##WILDVALUE##&#34; # IP address of the BGP peer
+If ((&#34;##SNMP.VERSION##&#34;) -and (&#34;##SNMP.VERSION##&#34; -notmatch &#34;2c$&#34;)) { $snmpVersion = &#34;##SNMP.VERSION##&#34; } Else { $snmpVersion = &#39;v2c&#39; }
+If (($port) -and ($port -match &#34;^[\d]+$&#34;)) { $snmpPort = $port } Else { $snmpPort = &#39;161&#39; } # $port is defined and matches any whole number.
+
+If (Test-Path -Path &#34;${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs&#34; -ErrorAction SilentlyContinue) {
+    $logDirPath = &#34;${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs&#34; # Directory, into which the log file will be written.
+}
+Else {
+    $logDirPath = &#34;$([System.Environment]::SystemDirectory)&#34; # Directory, into which the log file will be written.
+}
+$logFile = &#34;$logDirPath\datasource-Fortigate_Vdom_Bgp-ad-$hostaddr.log&#34;
+
+$message = (&#34;{0}: Beginning {1}.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $MyInvocation.MyCommand)
+If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
+
+$message = (&#34;{0}: Attempting to get data from {1}.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $instance)
+If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+# Properties from the BGP- DataSource.
+$establishedTime = ((snmpget.exe -r:$hostaddr -$snmpVersion -p:$snmpPort -c:&#34;$community-$vdom&#34; -o:&#34;1.3.6.1.2.1.15.3.1.16.$instance&#34;)[-1]).Split(&#39;=&#39;)[-1]
+$peerInUpdates = ((snmpget.exe -r:$hostaddr -$snmpVersion -p:$snmpPort -c:&#34;$community-$vdom&#34; -o:&#34;1.3.6.1.2.1.15.3.1.10.$instance&#34;)[-1]).Split(&#39;=&#39;)[-1]
+$peerOutUpdates = ((snmpget.exe -r:$hostaddr -$snmpVersion -p:$snmpPort -c:&#34;$community-$vdom&#34; -o:&#34;1.3.6.1.2.1.15.3.1.11.$instance&#34;)[-1]).Split(&#39;=&#39;)[-1]
+$peerState = ((snmpget.exe -r:$hostaddr -$snmpVersion -p:$snmpPort -c:&#34;$community-$vdom&#34; -o:&#34;1.3.6.1.2.1.15.3.1.2.$instance&#34;)[-1]).Split(&#39;=&#39;)[-1]
+
+$message = (&#34;{0}: Returning values.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;))
+If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+Try {
+    Write-Host (&#34;EstablishedTime={0}&#34; -f $establishedTime)
+    Write-Host (&#34;PeerInUpdates={0}&#34; -f $peerInUpdates)
+    Write-Host (&#34;PeerOutUpdates={0}&#34; -f $peerOutUpdates)
+    Write-Host (&#34;PeerState={0}&#34; -f $peerState)
+    Write-Host (&#34;ScriptStatus=0&#34;)
+
+    Exit 0
+}
+Catch {
+    $message = (&#34;{0}: Unexpected error writting out the results. The specific error is: {1}.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $_.Exception.Message)
+    If ($PSBoundParameters[&#39;Verbose&#39;]) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+    Write-Host (&#34;ScriptStatus=1&#34;)
+
+    Exit 1
+}</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>windowsscript</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>linuxscript</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>windowscmdline</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>linuxcmdline</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        </attributes>
+        <datapoints>
+        <datapoint>
+            <name>EstablishedTime</name>
+            <dataType>7</dataType>
+            <type>2</type>
+            <postprocessormethod>regex</postprocessormethod>
+            <postprocessorparam>EstablishedTime=(\d+)</postprocessorparam>
+            <usevalue>output</usevalue>
+            <alertexpr></alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody></alertbody>
+            <enableanomalyalertsuppression></enableanomalyalertsuppression>
+            <adadvsettingenabled>false</adadvsettingenabled>
+            <warnadadvsetting></warnadadvsetting>
+            <erroradadvsetting></erroradadvsetting>
+            <criticaladadvsetting></criticaladadvsetting>
+            <description></description>
+            <maxvalue></maxvalue>
+            <minvalue></minvalue>
+            <userparam1></userparam1>
+            <userparam2></userparam2>
+            <userparam3></userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        <datapoint>
+            <name>PeerInUpdates</name>
+            <dataType>7</dataType>
+            <type>2</type>
+            <postprocessormethod>regex</postprocessormethod>
+            <postprocessorparam>EstablishedTime=(\d+)</postprocessorparam>
+            <usevalue>output</usevalue>
+            <alertexpr></alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody></alertbody>
+            <enableanomalyalertsuppression></enableanomalyalertsuppression>
+            <adadvsettingenabled>false</adadvsettingenabled>
+            <warnadadvsetting></warnadadvsetting>
+            <erroradadvsetting></erroradadvsetting>
+            <criticaladadvsetting></criticaladadvsetting>
+            <description></description>
+            <maxvalue></maxvalue>
+            <minvalue></minvalue>
+            <userparam1></userparam1>
+            <userparam2></userparam2>
+            <userparam3></userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        <datapoint>
+            <name>PeerOutUpdates</name>
+            <dataType>7</dataType>
+            <type>2</type>
+            <postprocessormethod>regex</postprocessormethod>
+            <postprocessorparam>PeerOutUpdates=(\d+)</postprocessorparam>
+            <usevalue>output</usevalue>
+            <alertexpr></alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody></alertbody>
+            <enableanomalyalertsuppression></enableanomalyalertsuppression>
+            <adadvsettingenabled>false</adadvsettingenabled>
+            <warnadadvsetting></warnadadvsetting>
+            <erroradadvsetting></erroradadvsetting>
+            <criticaladadvsetting></criticaladadvsetting>
+            <description></description>
+            <maxvalue></maxvalue>
+            <minvalue></minvalue>
+            <userparam1></userparam1>
+            <userparam2></userparam2>
+            <userparam3></userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        <datapoint>
+            <name>PeerState</name>
+            <dataType>7</dataType>
+            <type>2</type>
+            <postprocessormethod>regex</postprocessormethod>
+            <postprocessorparam>PeerState=(\d+)</postprocessorparam>
+            <usevalue>output</usevalue>
+            <alertexpr>!= 6 6 6</alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody></alertbody>
+            <enableanomalyalertsuppression></enableanomalyalertsuppression>
+            <adadvsettingenabled>false</adadvsettingenabled>
+            <warnadadvsetting></warnadadvsetting>
+            <erroradadvsetting></erroradadvsetting>
+            <criticaladadvsetting></criticaladadvsetting>
+            <description></description>
+            <maxvalue></maxvalue>
+            <minvalue></minvalue>
+            <userparam1></userparam1>
+            <userparam2></userparam2>
+            <userparam3></userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        <datapoint>
+            <name>ScriptStatus</name>
+            <dataType>7</dataType>
+            <type>2</type>
+            <postprocessormethod>regex</postprocessormethod>
+            <postprocessorparam>ScriptStatus=(\d)</postprocessorparam>
+            <usevalue>output</usevalue>
+            <alertexpr>!= 0 0</alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody></alertbody>
+            <enableanomalyalertsuppression></enableanomalyalertsuppression>
+            <adadvsettingenabled>false</adadvsettingenabled>
+            <warnadadvsetting></warnadadvsetting>
+            <erroradadvsetting></erroradadvsetting>
+            <criticaladadvsetting></criticaladadvsetting>
+            <description>If the collection script encounters an unhandled exception, the script will return &#34;1&#34; for this datapoint. Review the log file at &#60;Program Files (x86)&#62;\datasource-Fortigate_Vdom_Bgp-ad-&#60;instance name&#62;.log&#34;</description>
+            <maxvalue></maxvalue>
+            <minvalue></minvalue>
+            <userparam1></userparam1>
+            <userparam2></userparam2>
+            <userparam3></userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        </datapoints>
+        <graphs>
+        </graphs>
+        <overviewgraphs>
+        </overviewgraphs>
+        <scripts>
+        </scripts>
+    </entry>
+</feed>
