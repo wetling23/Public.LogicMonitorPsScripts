@@ -4,6 +4,7 @@
     .NOTES
         V1.0.0.0 date: 14 July 2020
     .LINK
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Fortigate/bgp
 #>
 
 $hostaddr = "##SYSTEM.HOSTNAME##"
