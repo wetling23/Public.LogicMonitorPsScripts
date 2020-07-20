@@ -8,7 +8,6 @@
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Get-InterfacePairStatus
     .PARAMETER LogPath
         Path to which the script's output will be logged.
-
 #>
 [CmdletBinding()]
 param(
