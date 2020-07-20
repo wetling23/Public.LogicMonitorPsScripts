@@ -276,7 +276,7 @@ Switch ('accountName', 'accessId', 'accessKey', 'portPair', 'deviceId') {
 #endregion Setup
 
 #region Main
-$status = Get-InterfacePairStatus -AccessId $accessId -AccessKey $accessKey -AccountName $accountName -DeviceId $deviceId -PortPair $portPair.Split(',') -LogFile $logFile
+$status = Get-InterfacePairStatus -AccessId $accessId -AccessKey $accessKey -AccountName $accountName -DeviceId $deviceId -PortPair $portPair.Split(',') -DataSourceName 'snmp64_If_no_status_alert' -LogFile $logFile
 
 If ($status -match 'Error') {
     $message = ("{0}: Get-InterfacePairStatus returned an error. Exiting in an error state." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
