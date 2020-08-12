@@ -15,7 +15,6 @@ param ()
 # Need the computer for the log file name.
 $computer = '##system.hostname##'
 $pass = "##nim.pass##"
-
 [pscredential]$credential = New-Object System.Management.Automation.PSCredential('##nim.user##', ($pass | ConvertTo-SecureString -AsPlainText -Force))
 
 If (Test-Path -Path "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
