@@ -9,7 +9,7 @@
         V1.0.0.1 date: August 18, 2020
             - Hashemi rewrote, now it's actually functional
     .LINK
-
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/DataSourceScripts/WindowsActivationCheck/Windows_Activation_Check.ps1
 #>
 
 
