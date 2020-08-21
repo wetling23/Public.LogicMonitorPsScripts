@@ -15,59 +15,18 @@
     .PARAMETER LogFile
         Path to which logging will be written (including file name).
 #>
-Function Test-PsRemoting {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$ComputerName,
-
-        [System.Management.Automation.PSCredential]$Credential,
-
-        [switch]$LocalCheck,
-
-        [string]$LogFile
-    )
-
-    $message = ("{0}: Running Invoke-Command." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $LogFile -Append } Else { $message | Out-File -FilePath $LogFile -Append }
-
-    Try {
-        If ($LocalCheck) {
-            $result = Invoke-Command -ComputerName $ComputerName { 1 } -ErrorAction Stop
-        }
-        Else {
-            $result = Invoke-Command -Credential $Credential -ComputerName $ComputerName { 1 } -ErrorAction Stop
-        }
-    }
-    Catch {
-        $message = ("{0}: Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
-        If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $LogFile -Append } Else { $message | Out-File -FilePath $LogFile -Append }
-
-        Return $false
-    }
-
-    If ($result -ne 1) {
-        $message = ("{0}: Remoting to {1} returned an unexpected result." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName)
-        If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $LogFile -Append } Else { $message | Out-File -FilePath $LogFile -Append }
-
-        Return $false
-    }
-
-    $true
-}
-
 Try {
     # Initialize variables.
-    $ComputerName = "##SYSTEM.HOSTNAME##"
-    $Credential = New-Object System.Management.Automation.PSCredential("##WMI.USER##", ('##WMI.PASS##' | ConvertTo-SecureString -AsPlainText -Force -ErrorAction Stop))
+    $computerName = "##SYSTEM.HOSTNAME##"
+    $credential = New-Object System.Management.Automation.PSCredential("##WMI.USER##", ('##WMI.PASS##' | ConvertTo-SecureString -AsPlainText -Force -ErrorAction Stop))
 
-    If (Test-Path -Path "C:\Program Files (x86)\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
-        $logDirPath = "C:\Program Files (x86)\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
+    If (Test-Path -Path "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
+        $logDirPath = "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
     }
     Else {
         $logDirPath = "$([System.Environment]::SystemDirectory)" # Directory, into which the log file will be written.
     }
-    $logFile = "$logDirPath\datasource-TestPsRemoting-collection-$ComputerName.log"
+    $logFile = "$logDirPath\datasource-TestPsRemoting-collection-$computerName.log"
 
     $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
     If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
@@ -76,13 +35,13 @@ Try {
     If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
     # If necessary, update TrustedHosts.
-    If (-NOT(($ComputerName -eq $env:ComputerName) -or ($ComputerName -eq "127.0.0.1"))) {
-        If (((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -notmatch $ComputerName) -and ((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -ne "*")) {
-            $message = ("{0}: Adding {1} to TrustedHosts." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName)
+    If (-NOT(($computerName -eq $env:ComputerName) -or ($computerName -eq "127.0.0.1"))) {
+        If (((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -notmatch $computerName) -and ((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -ne "*")) {
+            $message = ("{0}: Adding {1} to TrustedHosts." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
             If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
             Try {
-                Set-Item -Path WSMan:\localhost\Client\TrustedHosts -Value $ComputerName -Concatenate -Force -ErrorAction Stop
+                Set-Item -Path WSMan:\localhost\Client\TrustedHosts -Value $computerName -Concatenate -Force -ErrorAction Stop
             }
             Catch {
                 $message = ("{0}: Unexpected error updating TrustedHosts: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
@@ -92,26 +51,26 @@ Try {
             }
         }
         Else {
-            $message = ("{0}: {1} is already in TrustedHosts." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName)
+            $message = ("{0}: {1} is already in TrustedHosts." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
             If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
         }
     }
 
-    If (($ComputerName -eq $env:ComputerName) -or ($ComputerName -eq "127.0.0.1")) {
-        $result = Test-PsRemoting -ComputerName $ComputerName -LogFile $logFile -LocalCheck
+    If (('##system.collector##' -eq "true") -or ($computerName -eq $env:ComputerName) -or ($computerName -eq "127.0.0.1")) {
+        $result = Invoke-Command { 1 } -ErrorAction Stop
     }
     Else {
-        $result = Test-PsRemoting -ComputerName $ComputerName -LogFile $logFile -Credential $Credential
+        $result = Invoke-Command -Credential $credential -ComputerName $computerName { 1 } -ErrorAction Stop
     }
 
-    If ($result -eq $false) {
-        $message = ("{0}: PS remoting is not enabled on {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName)
+    If ($result -ne 1) {
+        $message = ("{0}: PS remoting is not enabled on {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
         If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
         Write-Host ("PsRemotingEnabled=0")
     }
     Else {
-        $message = ("{0}: PS remoting is enabled on {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName)
+        $message = ("{0}: PS remoting is enabled on {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
         If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
         Write-Host ("PsRemotingEnabled=1")
