@@ -56,11 +56,29 @@ Try {
         }
     }
 
-    If (('##system.collector##' -eq "true") -or ($computerName -eq $env:ComputerName) -or ($computerName -eq "127.0.0.1")) {
-        $result = Invoke-Command { 1 } -ErrorAction Stop
+    Try {
+        If (('##system.collector##' -eq "true") -or ($computerName -eq $env:ComputerName) -or ($computerName -eq "127.0.0.1")) {
+            $result = Invoke-Command { 1 } -ErrorAction Stop
+        }
+        Else {
+            $result = Invoke-Command -Credential $credential -ComputerName $computerName { 1 } -ErrorAction Stop
+        }
     }
-    Else {
-        $result = Invoke-Command -Credential $credential -ComputerName $computerName { 1 } -ErrorAction Stop
+    Catch {
+        If ($_.Exception.Message -match 'Access is denied') {
+            $message = ("{0}: The remote host ({1}) reported that access is denied." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
+            If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+            Write-Host ("AccessDenied=1")
+
+            Exit 0
+        }
+        Else {
+            $message = ("{0}: Error running Invoke-Command. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+            If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+            Exit 1
+        }
     }
 
     If ($result -ne 1) {
@@ -68,12 +86,14 @@ Try {
         If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
         Write-Host ("PsRemotingEnabled=0")
+        Write-Host ("AccessDenied=0")
     }
     Else {
         $message = ("{0}: PS remoting is enabled on {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
         If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
         Write-Host ("PsRemotingEnabled=1")
+        Write-Host ("AccessDenied=0")
     }
 
     Exit 0
