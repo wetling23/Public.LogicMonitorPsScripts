@@ -6,30 +6,28 @@
         V1.0.0.0 date: 13 September 2019
             - Initial release
         V1.0.0.1 date: 9 October 2019
+        V1.0.0.2 date: 4 October 2020
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/RDPLoginAvailability
 #>
 Function Connect-RDP {
     param (
         [Parameter(Mandatory = $true)]
-        $ComputerName,
+        [string]$ComputerName,
 
-        [System.Management.Automation.Credential()]$Credential
+        [pscredential]$Credential
     )
 
-    # take each computername and process it individually
-    $ComputerName | ForEach-Object {
-        # If the user has submitted a credential, store it safely using cmdkey.exe for the given connection.
-        If ($PSBoundParameters.ContainsKey('Credential')) {
-            $User = $Credential.UserName
-            $Password = $Credential.GetNetworkCredential().Password
+    # Store the credential using cmdkey.exe for the given connection.
+    If ($PSBoundParameters.ContainsKey('Credential')) {
+        $User = $Credential.UserName
+        $Password = $Credential.GetNetworkCredential().Password
 
-            # save information using cmdkey.exe
-            cmdkey.exe /generic:$_ /user:$User /pass:$Password
-        }
-
-        mstsc.exe /v $_ /f
+        # save information using cmdkey.exe
+        cmdkey.exe /generic:$_ /user:$User /pass:$Password | Out-Null
     }
+
+    mstsc.exe /v $ComputerName /f
 }
 
 # Initialize variables.
@@ -45,60 +43,60 @@ Else {
 }
 $logFile = "$logDirPath\datasource-RDP_Login_Availability-collection-$computerName.log"
 
-$message = ("{0}: Beginning {1}." -f [datetime]::Now, $MyInvocation.MyCommand)
-If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
+$message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
+Write-Host $message; $message | Out-File -FilePath $logFile
 
-$message = ("{0}: Checking if the HKCU:\Software\Microsoft\Terminal Server Client path is present." -f [datetime]::Now)
-If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+$message = ("{0}: Checking if the HKCU:\Software\Microsoft\Terminal Server Client path is present." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
 If (Test-Path -Path 'HKCU:\Software\Microsoft\Terminal Server Client') {
-    $message = ("{0}: Found path, checking AuthenticationLevelOverride value." -f [datetime]::Now)
-    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+    $message = ("{0}: Found path, checking AuthenticationLevelOverride value." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     $rdpSecStatus = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Terminal Server Client\' -ErrorAction SilentlyContinue).AuthenticationLevelOverride
 }
 Else {
-    $message = ("{0}: Path not found, creating it." -f [datetime]::Now)
-    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+    $message = ("{0}: Path not found, creating it." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     New-Item -Path 'HKCU:\Software\Microsoft\Terminal Server Client\'
 }
 
 If ($rdpSecStatus -and ($rdpSecStatus -eq 0)) {
-    $message = ("{0}: Found AuthenticationLevelOverride present and with value '0'. No changes to make." -f [datetime]::Now)
-    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+    $message = ("{0}: Found AuthenticationLevelOverride present and with value '0'. No changes to make." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     $startStatus = 'Found:0'
 }
 ElseIf ($rdpSecStatus -and ($rdpSecStatus -ne 0)) {
-    $message = ("{0}: AuthenticationLevelOverride was not found with a value of {1}. Changing the registry value and recording that change, so we can return it later." -f [datetime]::Now, $rdpSecStatus)
-    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+    $message = ("{0}: AuthenticationLevelOverride was not found with a value of {1}. Changing the registry value and recording that change, so we can return it later." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $rdpSecStatus)
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     $startStatus = ('Non-zero:{0}' -f $rdpSecStatus)
 
     $null = Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Terminal Server Client' -Name AuthenticationLevelOverride -PropertyType DWORD -Value 0
 }
 ElseIf (-NOT($rdpSecStatus)) {
-    $message = ("{0}: AuthenticationLevelOverride not found. Adding the registry value and recording that change, so we can return it later." -f [datetime]::Now)
-    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+    $message = ("{0}: AuthenticationLevelOverride not found. Adding the registry value and recording that change, so we can return it later." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     $startStatus = 'Not present'
 
     $null = New-ItemProperty -Path 'HKCU:\Software\Microsoft\Terminal Server Client' -Name AuthenticationLevelOverride -PropertyType DWORD -Value 0
 }
 
-$message = ("{0}: Attempting to RDP to {1}." -f [datetime]::Now, $computerName)
-If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+$message = ("{0}: Attempting to RDP to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
+Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
 Connect-RDP -ComputerName $computerName -Credential $cred
 
-$message = ("{0}: Waiting 30 seconds, for the login to complete." -f [datetime]::Now, $computerName)
-If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+$message = ("{0}: Waiting 30 seconds, for the login to complete." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
+Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
 Start-Sleep -Seconds 30
 
-$message = ("{0}: Connecting to {1}, to retieve logged-in users." -f [datetime]::Now, $computerName)
-If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+$message = ("{0}: Connecting to {1}, with Invoke-Command, to retieve logged-in users." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
+Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
 $response = Invoke-Command -ComputerName $computerName -Credential $cred -ScriptBlock {
     param (
@@ -123,13 +121,13 @@ $response = Invoke-Command -ComputerName $computerName -Credential $cred -Script
         }
         Process {
             If (-NOT(Test-Connection $ComputerName -Quiet -Count 1)) {
-                $Script:message += ("{0}: Unable to contact $ComputerName. Please verify its network connectivity and try again.`r`n" -f [datetime]::Now)
+                $Script:psMessage += ("{0}: Unable to contact $ComputerName. Please verify its network connectivity and try again.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
 
                 Return "Error"
             }
             If ([bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")) {
                 #check if user is admin, otherwise no registry work can be done
-                $Script:message += ("{0}: Verified that we are running as an admin.`r`n" -f [datetime]::Now)
+                $Script:psMessage += ("{0}: Verified that we are running as an admin.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
 
                 #the following registry key is necessary to avoid the error 5 access is denied error
                 $LMtype = [Microsoft.Win32.RegistryHive]::LocalMachine
@@ -144,18 +142,18 @@ $response = Invoke-Command -ComputerName $computerName -Credential $cred -Script
                 $LMRegKey.Dispose()
             }
             Else {
-                $Script:message += ("{0}: Verified that we are not running as an admin.`r`n" -f [datetime]::Now)
+                $Script:psMessage += ("{0}: Verified that we are not running as an admin.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
             }
 
-            $Script:message += ("{0}: Running qwinsta against {1}.`r`n" -f [datetime]::Now, $ComputerName)
+            $Script:psMessage += ("{0}: Running qwinsta against {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName)
 
             $result = qwinsta /server:$ComputerName
 
             If ($result) {
-                $Script:message += ("{0}: Found sessions.`r`n" -f [datetime]::Now)
+                $Script:psMessage += ("{0}: Found sessions, parsing the result.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
 
-                ForEach ($line in $result[1..$result.count]) {
-                    #avoiding the line 0, don't want the headers
+                Foreach ($line in $result[1..$result.count]) {
+                    #avoiding line 0, don't want the headers
                     $tmp = $line.split(" ") | ? { $_.length -gt 0 }
                     If (($line[19] -ne " ")) {
 
@@ -187,7 +185,7 @@ $response = Invoke-Command -ComputerName $computerName -Credential $cred -Script
                 $result
             }
             Else {
-                $Script:message += ("{0}: Unknown error, cannot retrieve logged on users.`r`n" -f [datetime]::Now)
+                $Script:psMessage += ("{0}: Unknown error, cannot retrieve logged on users.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
             }
         }
         End {
@@ -201,7 +199,7 @@ $response = Invoke-Command -ComputerName $computerName -Credential $cred -Script
             }
             Else {
                 If (!($Quiet)) {
-                    $Script:message += "{0}: No active sessions.`r`n" -f [datetime]::Now
+                    $Script:psMessage += "{0}: No active sessions.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")
                 }
                 Return $false
             }
@@ -257,7 +255,7 @@ $response = Invoke-Command -ComputerName $computerName -Credential $cred -Script
         Begin { }
         Process {
             If (-NOT(Test-Connection $ComputerName -Quiet -Count 1)) {
-                $Script:message += ("{0}: Unable to contact {1}. Please verify its network connectivity and try again.`r`n" -f [datetime]::Now, $ComputerName)
+                $Script:psMessage += ("{0}: Unable to contact {1}. Please verify its network connectivity and try again.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName)
 
                 Return "Error"
             }
@@ -276,92 +274,92 @@ $response = Invoke-Command -ComputerName $computerName -Credential $cred -Script
                 $LMRegKey.Dispose()
             }
 
-            $Script:message += ("{0}: Running rwinsta to log off the user with session ID {1}.`r`n" -f [datetime]::Now, $ID)
+            $Script:psMessage += ("{0}: Running rwinsta to log off the user with session ID {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ID)
 
-            $script:message += rwinsta.exe /server:$ComputerName $ID /V
+            $Script:psMessage += rwinsta.exe /server:$ComputerName $ID /V
         }
         End { }
     }
 
-    $message = @"
-{0}: Getting active RDP sessions on {1}. We will look for {2}.`r`n
-"@ -f [datetime]::Now, $ComputerName, $UserName
-    Set-Variable -Name message -Option AllScope
+    $psMessage = @"
+{0}: Connected to {1}, getting active RDP sessions. Checking for {2}.`r`n
+"@ -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName, $UserName
+    Set-Variable -Name psMessage -Option AllScope
 
     $sessions = Get-ActiveSessions -ComputerName $ComputerName
 
     If ($sessions.UserName) {
-        $message += ("{0}: Found {1} sessions. Checking if {2} is logged in.`r`n" -f [datetime]::Now, $sessions.Count, $UserName)
+        $Script:psMessage += ("{0}: Found {1} sessions. Checking if {2} is logged in.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $sessions.Count, $UserName)
 
-        $sessions | ForEach-Object {
-            If ($_.UserName -eq $UserName.Split('\')[-1]) {
-                $message += ("{0}: Found {1} logged in. The session ID is {2}. Calling Close-ActiveSessions.`r`n" -f [datetime]::Now, $UserName, $_.Id)
+        Foreach ($session in $sessions) {
+            If ($session.UserName -eq $UserName.Split('\')[-1]) {
+                $Script:psMessage += ("{0}: Found {1} logged in. The session ID is {2}. Calling Close-ActiveSessions.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $UserName, $session.Id)
 
-                $response = Close-ActiveSessions -ComputerName $ComputerName -Id $_.Id
+                $response = Close-ActiveSessions -ComputerName $ComputerName -Id $session.Id
 
                 If ($response -eq "Error") {
-                    Return 2, $message
+                    Return 2, $psMessage
                 }
                 Else {
-                    Return 0, $message
+                    Return 0, $psMessage
                 }
             }
         }
     }
     ElseIf ($sessions -eq "Error") {
-        Return 1, $message
+        Return 1, $Script:psMessage
     }
     Else {
-        $message += ("{0}: No sessions matching {1} found. Disconnecting from {2}." -f [datetime]::Now, $UserName, $ComputerName)
+        $Script:psMessage += ("{0}: No sessions matching {1} found. Disconnecting from {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $UserName, $ComputerName)
 
-        Return 3, $message
+        Return 3, $Script:psMessage
     }
 } -ArgumentList $computerName, $username -Verbose
 
 # Adding response to the DataSource log.
-If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $response[-1]; $response[-1] | Out-File -FilePath $logFile -Append } Else { $response[-1] | Out-File -FilePath $logFile -Append }
+Write-Host $response[-1]; $response[-1] | Out-File -FilePath $logFile -Append
 
-$message = ("{0}: If necessary, returning the registry to its previous state." -f [datetime]::Now)
-If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+$message = ("{0}: If necessary, returning the registry to its previous state." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
 If ($startStatus -eq 'Found:0') {
-    $message = ("{0}: No registry changes to revert." -f [datetime]::Now)
-    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+    $message = ("{0}: No registry changes to revert." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
 }
 ElseIf ($startStatus -match 'Non-zero') {
-    $message = ("{0}: Changing the value of AuthenticationLevelOverride back to {1}." -f [datetime]::Now, $startStatus.Split(':')[-1])
-    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+    $message = ("{0}: Changing the value of AuthenticationLevelOverride back to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $startStatus.Split(':')[-1])
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     Try {
         $null = Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Terminal Server Client' -Name AuthenticationLevelOverride -PropertyType DWORD -Value $($startStatus.Split(':')[-1])
     }
     Catch {
-        $message = ("{0}: Unable to reset the AuthenticationLevelOverride registry value. The specific error is: {1}." -f [datetime]::Now, $_.Exception.Message)
+        $message = ("{0}: Unable to reset the AuthenticationLevelOverride registry value. The specific error is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
         If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; $message | Out-File -FilePath $logFile -Append }
     }
 }
 ElseIf ($startStatus -eq 'Not present') {
-    $message = ("{0}: Attempting to remove AuthenticationLevelOverride from the registry." -f [datetime]::Now)
-    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+    $message = ("{0}: Attempting to remove AuthenticationLevelOverride from the registry." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     Try {
         $null = Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Terminal Server Client' -Name AuthenticationLevelOverride -Force
     }
     Catch {
-        $message = ("{0}: Unable to remove the AuthenticationLevelOverride registry value. The specific error is: {1}." -f [datetime]::Now, $_.Exception.Message)
+        $message = ("{0}: Unable to remove the AuthenticationLevelOverride registry value. The specific error is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
         If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; $message | Out-File -FilePath $logFile -Append }
     }
 }
 
 If ($response -match 'Resetting session ID') {
-    $message = ("{0}: Found login to {1} successful." -f [datetime]::Now, $computerName)
-    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+    $message = ("{0}: Found login to {1} successful." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     Exit 0
 }
 Else {
-    $message = ("{0}: Test login to {1} unsuccessful." -f [datetime]::Now, $computerName)
-    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+    $message = ("{0}: Login to {1} was unsuccessful." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     Exit 1
 }
