@@ -6,8 +6,9 @@ Function Get-JsonFile {
             Author: Mike Hashemi
             V1.0.0.0 date: 21 March 2019
                 - Initial release.
+            V1.0.0.1 date: 19 October 2020
         .LINK
-            
+            https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/ConfigSourceScripts/ActiveDirectory/AdProperties/Get-AdPropertiesJson.ps1
         .PARAMETER DcFqdn
             Fully qualified domain name for a target domain controller. If not specified, the script will take the hostname (if $OnDomainController == $true) or will prompt the user for a server name.
         .PARAMETER Credential
@@ -63,21 +64,28 @@ Function Get-JsonFile {
     }
 
     If (($backup) -and ($backup -notmatch "DC Error:")) {
-        $message = ("{0}: Retrieved Active Directory config content, returning it." -f (Get-Date -Format s), $DcFqdn)
+        $message = ("{0}: Retrieved Active Directory config content." -f (Get-Date -Format s))
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+
+        $message = ("{0}: Returning:`r`n." -f (Get-Date -Format s), $backup)
+        If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
         $backup
 
         Exit 0
     }
     ElseIf (($backup) -and ($backup -match "DC Error:")) {
-        $message = ("{0}: {1} reported an error retrieving Active Directory config content: {1}." -f (Get-Date -Format s), $backup)
+        $message = ("{0}: {1} reported an error retrieving Active Directory config content: {2}." -f (Get-Date -Format s), $DcFqdn, $backup)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
         Exit 1
     }
+    ElseIf ($backup) {
+        $message = ("{0}: Unexpected content retrieved:`r`n{1}." -f (Get-Date -Format s), $backup)
+        If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+    }
     ElseIf (-NOT($backup)) {
-        $message = ("{0}: No content or an error retrieved." -f (Get-Date -Format s), $DcFqdn)
+        $message = ("{0}: No content retrieved." -f (Get-Date -Format s), $DcFqdn)
         If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
 
         Exit 1
