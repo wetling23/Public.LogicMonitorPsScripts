@@ -7,6 +7,7 @@
             - Initial release
         V1.0.0.1 date: 9 October 2019
         V1.0.0.2 date: 4 October 2020
+        V1.0.0.3 date: 6 October 2002
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/RDPLoginAvailability
 #>
@@ -24,7 +25,7 @@ Function Connect-RDP {
         $Password = $Credential.GetNetworkCredential().Password
 
         # save information using cmdkey.exe
-        cmdkey.exe /generic:$_ /user:$User /pass:$Password | Out-Null
+        $null = cmdkey.exe /generic:TERMSRV/$ComputerName /user:$User /pass:$Password
     }
 
     mstsc.exe /v $ComputerName /f
@@ -32,8 +33,11 @@ Function Connect-RDP {
 
 # Initialize variables.
 $computerName = '##system.hostname##'
-$username = '##rdp.user##'
-$cred = New-Object System.Management.Automation.PSCredential ($username, $('##rdp.pass##' | ConvertTo-SecureString -AsPlainText -Force))
+$username = '##wmi.user##'
+$pass = @'
+##wmi.pass##
+'@
+$cred = New-Object System.Management.Automation.PSCredential ($username, $($pass | ConvertTo-SecureString -AsPlainText -Force))
 
 If (Test-Path -Path "C:\Program Files (x86)\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
     $logDirPath = "C:\Program Files (x86)\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
@@ -45,6 +49,31 @@ $logFile = "$logDirPath\datasource-RDP_Login_Availability-collection-$computerNa
 
 $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
 Write-Host $message; $message | Out-File -FilePath $logFile
+
+$message = ("{0}: Checking TrustedHosts." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+# If necessary, update TrustedHosts.
+If (-NOT(($computerName -eq $env:ComputerName) -or ($computerName -eq "127.0.0.1"))) {
+    If (((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -notmatch $computerName) -and ((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -ne "*")) {
+        $message = ("{0}: Adding {1} to TrustedHosts." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+        Try {
+            Set-Item -Path WSMan:\localhost\Client\TrustedHosts -Value $computerName -Concatenate -Force -ErrorAction Stop
+        }
+        Catch {
+            $message = ("{0}: Unexpected error updating TrustedHosts: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+            Exit 1
+        }
+    }
+    Else {
+        $message = ("{0}: {1} is already in TrustedHosts." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+    }
+}
 
 $message = ("{0}: Checking if the HKCU:\Software\Microsoft\Terminal Server Client path is present." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
 Write-Host $message; $message | Out-File -FilePath $logFile -Append
@@ -82,7 +111,7 @@ ElseIf (-NOT($rdpSecStatus)) {
 
     $startStatus = 'Not present'
 
-    $null = New-ItemProperty -Path 'HKCU:\Software\Microsoft\Terminal Server Client' -Name AuthenticationLevelOverride -PropertyType DWORD -Value 0
+    $null = New-ItemProperty -Path 'HKCU:\Software\Microsoft\Terminal Server Client' -Name AuthenticationLevelOverride -PropertyType DWORD -Value 0 -ErrorAction SilentlyContinue
 }
 
 $message = ("{0}: Attempting to RDP to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
@@ -98,115 +127,117 @@ Start-Sleep -Seconds 30
 $message = ("{0}: Connecting to {1}, with Invoke-Command, to retieve logged-in users." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
 Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
-$response = Invoke-Command -ComputerName $computerName -Credential $cred -ScriptBlock {
-    param (
-        $ComputerName,
-        $UserName
-    )
-
-    Function Get-ActiveSessions {
-        Param(
-            [Parameter(
-                Mandatory = $true,
-                ValueFromPipeline = $true,
-                ValueFromPipelineByPropertyName = $true
-            )]
-            [ValidateNotNullOrEmpty()]
-            [string]$ComputerName,
-
-            [switch]$Quiet
+Try {
+    $response = Invoke-Command -ComputerName $computerName -Credential $cred -ScriptBlock {
+        param (
+            $ComputerName,
+            $UserName
         )
-        Begin {
-            $return = @()
-        }
-        Process {
-            If (-NOT(Test-Connection $ComputerName -Quiet -Count 1)) {
-                $Script:psMessage += ("{0}: Unable to contact $ComputerName. Please verify its network connectivity and try again.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
 
-                Return "Error"
+        Function Get-ActiveSessions {
+            Param(
+                [Parameter(
+                    Mandatory = $true,
+                    ValueFromPipeline = $true,
+                    ValueFromPipelineByPropertyName = $true
+                )]
+                [ValidateNotNullOrEmpty()]
+                [string]$ComputerName,
+
+                [switch]$Quiet
+            )
+            Begin {
+                $return = @()
+                $remoteMessage += ("{0}: Beginning {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.$MyInvocation.MyCommand)
             }
-            If ([bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")) {
-                #check if user is admin, otherwise no registry work can be done
-                $Script:psMessage += ("{0}: Verified that we are running as an admin.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+            Process {
+                If (-NOT(Test-Connection $ComputerName -Quiet -Count 1)) {
+                    $remoteMessage += ("{0}: Unable to contact $ComputerName. Please verify its network connectivity and try again.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
 
-                #the following registry key is necessary to avoid the error 5 access is denied error
-                $LMtype = [Microsoft.Win32.RegistryHive]::LocalMachine
-                $LMkey = "SYSTEM\CurrentControlSet\Control\Terminal Server"
-                $LMRegKey = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey($LMtype, $ComputerName)
-                $regKey = $LMRegKey.OpenSubKey($LMkey, $true)
-                If ($regKey.GetValue("AllowRemoteRPC") -ne 1) {
-                    $regKey.SetValue("AllowRemoteRPC", 1)
-                    Start-Sleep -Seconds 1
+                    "Error"
                 }
-                $regKey.Dispose()
-                $LMRegKey.Dispose()
-            }
-            Else {
-                $Script:psMessage += ("{0}: Verified that we are not running as an admin.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-            }
+                If ([bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")) {
+                    #check if user is admin, otherwise no registry work can be done
+                    $remoteMessage += ("{0}: Verified that we are running as an admin.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
 
-            $Script:psMessage += ("{0}: Running qwinsta against {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName)
+                    #the following registry key is necessary to avoid the error 5 access is denied error
+                    $LMtype = [Microsoft.Win32.RegistryHive]::LocalMachine
+                    $LMkey = "SYSTEM\CurrentControlSet\Control\Terminal Server"
+                    $LMRegKey = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey($LMtype, $ComputerName)
+                    $regKey = $LMRegKey.OpenSubKey($LMkey, $true)
+                    If ($regKey.GetValue("AllowRemoteRPC") -ne 1) {
+                        $regKey.SetValue("AllowRemoteRPC", 1)
+                        Start-Sleep -Seconds 1
+                    }
+                    $regKey.Dispose()
+                    $LMRegKey.Dispose()
+                }
+                Else {
+                    $remoteMessage += ("{0}: Verified that we are not running as an admin.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+                }
 
-            $result = qwinsta /server:$ComputerName
+                $remoteMessage += ("{0}: Running qwinsta against {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName)
 
-            If ($result) {
-                $Script:psMessage += ("{0}: Found sessions, parsing the result.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+                $result = qwinsta /server:$ComputerName
 
-                Foreach ($line in $result[1..$result.count]) {
-                    #avoiding line 0, don't want the headers
-                    $tmp = $line.split(" ") | ? { $_.length -gt 0 }
-                    If (($line[19] -ne " ")) {
+                If ($result) {
+                    $remoteMessage += ("{0}: Found sessions, parsing the result.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
 
-                        #username starts at char 19
-                        If ($line[48] -eq "A") {
-                            #means the session is active ("A" for active)
-                            $return += New-Object PSObject -Property @{
-                                "ComputerName" = $ComputerName
-                                "SessionName"  = $tmp[0]
-                                "UserName"     = $tmp[1]
-                                "ID"           = $tmp[2]
-                                "State"        = $tmp[3]
-                                "Type"         = $tmp[4]
+                    Foreach ($line in $result[1..$result.count]) {
+                        #avoiding line 0, don't want the headers
+                        $tmp = $line.split(" ") | ? { $_.length -gt 0 }
+                        If (($line[19] -ne " ")) {
+
+                            #username starts at char 19
+                            If ($line[48] -eq "A") {
+                                #means the session is active ("A" for active)
+                                $return += New-Object PSObject -Property @{
+                                    "ComputerName" = $ComputerName
+                                    "SessionName"  = $tmp[0]
+                                    "UserName"     = $tmp[1]
+                                    "ID"           = $tmp[2]
+                                    "State"        = $tmp[3]
+                                    "Type"         = $tmp[4]
+                                }
                             }
-                        }
-                        Else {
-                            $return += New-Object PSObject -Property @{
-                                "ComputerName" = $ComputerName
-                                "SessionName"  = $null
-                                "UserName"     = $tmp[0]
-                                "ID"           = $tmp[1]
-                                "State"        = $tmp[2]
-                                "Type"         = $null
+                            Else {
+                                $return += New-Object PSObject -Property @{
+                                    "ComputerName" = $ComputerName
+                                    "SessionName"  = $null
+                                    "UserName"     = $tmp[0]
+                                    "ID"           = $tmp[1]
+                                    "State"        = $tmp[2]
+                                    "Type"         = $null
+                                }
                             }
                         }
                     }
-                }
 
-                $result
-            }
-            Else {
-                $Script:psMessage += ("{0}: Unknown error, cannot retrieve logged on users.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-            }
-        }
-        End {
-            If ($return) {
-                If ($Quiet) {
-                    Return $true
+                    $result
                 }
                 Else {
-                    Return $return
+                    $remoteMessage += ("{0}: Unknown error, cannot retrieve logged on users.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
                 }
             }
-            Else {
-                If (!($Quiet)) {
-                    $Script:psMessage += "{0}: No active sessions.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")
+            End {
+                If ($return) {
+                    If ($Quiet) {
+                        $true
+                    }
+                    Else {
+                        $return
+                    }
                 }
-                Return $false
+                Else {
+                    If (!($Quiet)) {
+                        $remoteMessage += "{0}: No active sessions.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")
+                    }
+                    $false
+                }
             }
         }
-    }
-    Function Close-ActiveSessions {
-        <#
+        Function Close-ActiveSessions {
+            <#
             .SYNOPSIS
                 Closes the specified open sessions of a remote or local workstations
             .DESCRIPTION
@@ -235,130 +266,157 @@ $response = Invoke-Command -ComputerName $computerName -Credential $cred -Script
                 http://stackoverflow.com/questions/22155943/qwinsta-error-5-access-is-denied
                 https://theposhwolf.com
         #>
-        Param(
-            [Parameter(
-                Mandatory = $true,
-                ValueFromPipeline = $true,
-                ValueFromPipelineByPropertyName = $true,
-                Position = 1
-            )]
-            [string]$ComputerName,
+            Param(
+                [Parameter(
+                    Mandatory = $true,
+                    ValueFromPipeline = $true,
+                    ValueFromPipelineByPropertyName = $true,
+                    Position = 1
+                )]
+                [string]$ComputerName,
 
-            [Parameter(
-                Mandatory = $true,
-                ValueFromPipeline = $true,
-                ValueFromPipelineByPropertyName = $true,
-                Position = 2
-            )]
-            [int]$ID
-        )
-        Begin { }
-        Process {
-            If (-NOT(Test-Connection $ComputerName -Quiet -Count 1)) {
-                $Script:psMessage += ("{0}: Unable to contact {1}. Please verify its network connectivity and try again.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName)
-
-                Return "Error"
+                [Parameter(
+                    Mandatory = $true,
+                    ValueFromPipeline = $true,
+                    ValueFromPipelineByPropertyName = $true,
+                    Position = 2
+                )]
+                [int]$ID
+            )
+            Begin {
+                $remoteMessage += ("{0}: Beginning {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.$MyInvocation.MyCommand)
             }
-            If ([bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")) {
-                #check if user is admin, otherwise no registry work can be done
-                #the following registry key is necessary to avoid the error 5 access is denied error
-                $LMtype = [Microsoft.Win32.RegistryHive]::LocalMachine
-                $LMkey = "SYSTEM\CurrentControlSet\Control\Terminal Server"
-                $LMRegKey = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey($LMtype, $ComputerName)
-                $regKey = $LMRegKey.OpenSubKey($LMkey, $true)
-                If ($regKey.GetValue("AllowRemoteRPC") -ne 1) {
-                    $regKey.SetValue("AllowRemoteRPC", 1)
-                    Start-Sleep -Seconds 1
+            Process {
+                If (-NOT(Test-Connection $ComputerName -Quiet -Count 1)) {
+                    $remoteMessage += ("{0}: Unable to contact {1}. Please verify its network connectivity and try again.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName)
+
+                    "Error"
                 }
-                $regKey.Dispose()
-                $LMRegKey.Dispose()
+                If ([bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")) {
+                    #check if user is admin, otherwise no registry work can be done
+                    #the following registry key is necessary to avoid the error 5 access is denied error
+                    $LMtype = [Microsoft.Win32.RegistryHive]::LocalMachine
+                    $LMkey = "SYSTEM\CurrentControlSet\Control\Terminal Server"
+                    $LMRegKey = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey($LMtype, $ComputerName)
+                    $regKey = $LMRegKey.OpenSubKey($LMkey, $true)
+                    If ($regKey.GetValue("AllowRemoteRPC") -ne 1) {
+                        $regKey.SetValue("AllowRemoteRPC", 1)
+                        Start-Sleep -Seconds 1
+                    }
+                    $regKey.Dispose()
+                    $LMRegKey.Dispose()
+                }
+
+                $remoteMessage += ("{0}: Running rwinsta to log off the user with session ID {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ID)
+
+                $remoteMessage += rwinsta.exe /server:$ComputerName $ID /V
             }
-
-            $Script:psMessage += ("{0}: Running rwinsta to log off the user with session ID {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ID)
-
-            $Script:psMessage += rwinsta.exe /server:$ComputerName $ID /V
+            End { }
         }
-        End { }
-    }
 
-    $psMessage = @"
+        $remoteMessage = @"
 {0}: Connected to {1}, getting active RDP sessions. Checking for {2}.`r`n
 "@ -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName, $UserName
-    Set-Variable -Name psMessage -Option AllScope
 
-    $sessions = Get-ActiveSessions -ComputerName $ComputerName
+        Try {
+            $sessions = Get-ActiveSessions -ComputerName $ComputerName
 
-    If ($sessions.UserName) {
-        $Script:psMessage += ("{0}: Found {1} sessions. Checking if {2} is logged in.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $sessions.Count, $UserName)
+            If ($sessions.UserName) {
+                $remoteMessage += ("{0}: Found {1} sessions. Checking if {2} is logged in.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $sessions.Count, $UserName)
 
-        Foreach ($session in $sessions) {
-            If ($session.UserName -eq $UserName.Split('\')[-1]) {
-                $Script:psMessage += ("{0}: Found {1} logged in. The session ID is {2}. Calling Close-ActiveSessions.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $UserName, $session.Id)
+                $var = Foreach ($session in $sessions) {
+                    If ($session.UserName -eq $UserName.Split('\')[-1]) {
+                        $remoteMessage += ("{0}: Found {1} logged in. The session ID is {2}. Calling Close-ActiveSessions.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $UserName, $session.Id)
 
-                $response = Close-ActiveSessions -ComputerName $ComputerName -Id $session.Id
+                        $closeResponse = Close-ActiveSessions -ComputerName $ComputerName -Id $session.Id
 
-                If ($response -eq "Error") {
-                    Return 2, $psMessage
+                        If ($closeResponse -eq "Error") {
+                            2, $remoteMessage
+                        }
+                        Else {
+                            0, $remoteMessage
+                        }
+                    }
                 }
-                Else {
-                    Return 0, $psMessage
-                }
+
+                Return $var
+            }
+            ElseIf ($sessions -eq "Error") {
+                1, $remoteMessage
+            }
+            Else {
+                $remoteMessage += ("{0}: No sessions matching {1} found. Disconnecting from {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $UserName, $ComputerName)
+
+                3, $remoteMessage
             }
         }
+        Catch {
+            $remoteMessage += ("{0}: Unexpected error in the Invoke-Command block. The error occurred at line {1}, the command was `"{2}`", and the specific error is: {3}" -f [datetime]::Now, $_.InvocationInfo.ScriptLineNumber, $_.InvocationInfo.MyCommand.Name, $_.Exception.Message)
+
+            4, $remoteMessage
+        }
+
+    } -ArgumentList $computerName, $username -ErrorAction Stop
+}
+Catch {
+    $message = ("{0}: Unexpected error connecting to {1} with Invoke-Command. Error: {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName, $_.Exception.Message)
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
+}
+
+If ($response -is [system.array]) {
+    # Adding response to the DataSource log.
+    Write-Host $response[1]; $response[1] | Out-File -FilePath $logFile -Append
+
+    $message = ("{0}: If necessary, returning the registry to its previous state." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+    If ($startStatus -eq 'Found:0') {
+        $message = ("{0}: No registry changes to revert." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
     }
-    ElseIf ($sessions -eq "Error") {
-        Return 1, $Script:psMessage
+    ElseIf ($startStatus -match 'Non-zero') {
+        $message = ("{0}: Changing the value of AuthenticationLevelOverride back to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $startStatus.Split(':')[-1])
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+        Try {
+            $null = Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Terminal Server Client' -Name AuthenticationLevelOverride -PropertyType DWORD -Value $($startStatus.Split(':')[-1])
+        }
+        Catch {
+            $message = ("{0}: Unable to reset the AuthenticationLevelOverride registry value. The specific error is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+            If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; $message | Out-File -FilePath $logFile -Append }
+        }
+    }
+    ElseIf ($startStatus -eq 'Not present') {
+        $message = ("{0}: Attempting to remove AuthenticationLevelOverride from the registry." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+        Try {
+            $null = Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Terminal Server Client' -Name AuthenticationLevelOverride -Force
+        }
+        Catch {
+            $message = ("{0}: Unable to remove the AuthenticationLevelOverride registry value. The specific error is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+            If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; $message | Out-File -FilePath $logFile -Append }
+        }
+    }
+
+    $message = ("{0}: The value of `$response is {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), ($response | Out-String))
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+    If ($response[0] -eq 0) {
+        $message = ("{0}: Found login to {1} successful." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+        Exit 0
     }
     Else {
-        $Script:psMessage += ("{0}: No sessions matching {1} found. Disconnecting from {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $UserName, $ComputerName)
+        $message = ("{0}: Login to {1} was unsuccessful." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
-        Return 3, $Script:psMessage
+        Exit 1
     }
-} -ArgumentList $computerName, $username -Verbose
-
-# Adding response to the DataSource log.
-Write-Host $response[-1]; $response[-1] | Out-File -FilePath $logFile -Append
-
-$message = ("{0}: If necessary, returning the registry to its previous state." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-Write-Host $message; $message | Out-File -FilePath $logFile -Append
-
-If ($startStatus -eq 'Found:0') {
-    $message = ("{0}: No registry changes to revert." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    Write-Host $message; $message | Out-File -FilePath $logFile -Append
-}
-ElseIf ($startStatus -match 'Non-zero') {
-    $message = ("{0}: Changing the value of AuthenticationLevelOverride back to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $startStatus.Split(':')[-1])
-    Write-Host $message; $message | Out-File -FilePath $logFile -Append
-
-    Try {
-        $null = Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Terminal Server Client' -Name AuthenticationLevelOverride -PropertyType DWORD -Value $($startStatus.Split(':')[-1])
-    }
-    Catch {
-        $message = ("{0}: Unable to reset the AuthenticationLevelOverride registry value. The specific error is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
-        If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; $message | Out-File -FilePath $logFile -Append }
-    }
-}
-ElseIf ($startStatus -eq 'Not present') {
-    $message = ("{0}: Attempting to remove AuthenticationLevelOverride from the registry." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    Write-Host $message; $message | Out-File -FilePath $logFile -Append
-
-    Try {
-        $null = Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Terminal Server Client' -Name AuthenticationLevelOverride -Force
-    }
-    Catch {
-        $message = ("{0}: Unable to remove the AuthenticationLevelOverride registry value. The specific error is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
-        If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; $message | Out-File -FilePath $logFile -Append }
-    }
-}
-
-If ($response -match 'Resetting session ID') {
-    $message = ("{0}: Found login to {1} successful." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
-    Write-Host $message; $message | Out-File -FilePath $logFile -Append
-
-    Exit 0
 }
 Else {
-    $message = ("{0}: Login to {1} was unsuccessful." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
+    $message = ("{0}: No/partial response. To prevent errors, {1} will exit. The value of `$response is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, ($response | Out-String))
     Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     Exit 1
