@@ -7,6 +7,7 @@
             - Initial release.
         V1.0.0.1 date: 31 October 2019
         V1.0.0.2 date: 24 April 2020
+        V1.0.0.3 date: 28 October 2020
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Reports/ThresholdReport-Script.ps1
     .PARAMETER AccessId
@@ -102,6 +103,14 @@ Else {
     ElseIf ($LogPath -and (-NOT $EventLogSource)) {
         $commandParams = @{
             LogPath     = $LogPath
+            AccessId    = $AccessId
+            AccessKey   = $AccessKey
+            AccountName = $AccountName
+            Verbose     = $False
+        }
+    }
+    Else {
+        $commandParams = @{
             AccessId    = $AccessId
             AccessKey   = $AccessKey
             AccountName = $AccountName
