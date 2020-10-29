@@ -63,37 +63,61 @@ Function Get-JsonFile {
     Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     Try {
-        $backup = Invoke-Command -ComputerName $DcFqdn -Credential $Credential -ScriptBlock {
-            Try {Get-Content -Path C:\Windows\System32\adConfig.json -ErrorAction Stop} Catch {("DC Error: {0}" -f $_.Exception.Message)}
+        $return = Invoke-Command -ComputerName $DcFqdn -Credential $Credential -ScriptBlock {
+            $remoteMessage = @()
+            $content = $null
+
+            $remoteMessage = ("{0}: Connected to DC.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+            Try {
+                $content = Get-Content -Path C:\Windows\System32\adConfig.json -ErrorAction Stop
+
+                $remoteMessage += ("{0}: File content retrieved." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+            }
+            Catch {
+                $remoteMessage += ("{0}: DC Error: {1}`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+            }
+
+            Return $remoteMessage, $content
         } -ErrorAction Stop
     }
     Catch {
         $message = ("{0}: Unexpected error getting the contents of adConfig.json. The error is: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
         Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
-        Exit 1
+        Return 1
     }
 
-    If (($backup) -and ($backup -notmatch "DC Error:")) {
-        $message = ("{0}: Retrieved Active Directory config content." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+    If ($return -is [system.array]) {
+        $backup = $return[1]
+        $remoteMessage = $return[0]
+    }
+    Else {
+        # Only one item was returned and we assume it is the "message", meaning that there was no backup retrieved.
+        Write-Error $remoteMessage; $remoteMessage | Out-File -FilePath $logFile -Append
 
-        $message = ("{0}: Returning:`r`n." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $backup)
+        Return 1
+    }
+
+    If ($remoteMessage -match "DC Error:") {
+        # Writing the error from the DC.
+        Write-Error $remoteMessage; $remoteMessage | Out-File -FilePath $logFile -Append
+
+        Return 1
+    }
+    ElseIf ($backup) {
+        # Writing the error from the DC first.
+        Write-Host $remoteMessage; $remoteMessage | Out-File -FilePath $logFile -Append
+
+        $message = ("{0}: Returning:`r`n{1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), ($backup | Out-String))
         Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
         $backup
     }
-    ElseIf (($backup) -and ($backup -match "DC Error:")) {
-        $message = ("{0}: {1} reported an error retrieving Active Directory config content: {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $DcFqdn, $backup)
+    Else {
+        $message = ("{0}: Unexpected or no content retrieved:`r`n{1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $return)
         Write-Error $message; $message | Out-File -FilePath $logFile -Append
-    }
-    ElseIf ($backup) {
-        $message = ("{0}: Unexpected content retrieved:`r`n{1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $backup)
-        Write-Error $message; $message | Out-File -FilePath $logFile -Append
-    }
-    ElseIf (-NOT($backup)) {
-        $message = ("{0}: No content retrieved." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $DcFqdn)
-        Write-Error $message; $message | Out-File -FilePath $logFile -Append
+
+        Return 1
     }
 }
 
@@ -112,8 +136,8 @@ Write-Host $message; $message | Out-File -FilePath $logFile
 
 $return = Get-JsonFile -DcFqdn $server -Credential $cred -logFile $logFile
 
-If ($return) {
-    $message = ("{0}: File retrieved, script complete." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+If (($return) -and ($return -ne 1)) {
+    $message = ("{0}: Script complete." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     $return
