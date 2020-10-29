@@ -1,3 +1,14 @@
+<#
+    .DESCRIPTION
+        Connect to a remote server and return the content of C:\Windows\System32\adConfig.json
+    .NOTES
+        Author: Mike Hashemi
+        V1.0.0.1 date: 29 October 2020
+    .LINK
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/ActiveDirectory/AdProperties
+#>
+[cmdletbinding()]
+param()
 Function Get-JsonFile {
     <#
         .DESCRIPTION
@@ -29,66 +40,60 @@ Function Get-JsonFile {
         [string]$LogFile
     )
 
-    $message = ("{0}: Checking TrustedHosts file." -f (Get-Date -Format s))
-    If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+    $message = ("{0}: Checking TrustedHosts file." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+    Write-Host $message; $message | Out-File -Path $logFile -Append
 
     # Add the target device to TrustedHosts.
     If (($DcFqdn -notmatch (Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts) -and ((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -ne "*") -and ($DcFqdn -ne "127.0.0.1")) {
-        $message = ("{0}: Adding {1} to TrustedHosts." -f (Get-Date -Format s), $hostDcFqdnname)
-        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+        $message = ("{0}: Adding {1} to TrustedHosts." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $hostDcFqdnname)
+        Write-Host $message; $message | Out-File -Path $logFile -Append
 
         Try {
             Set-Item -Path WSMan:\localhost\Client\TrustedHosts -Value $DcFqdn -Concatenate -Force -ErrorAction Stop
         }
         Catch {
-            $message = ("{0}: Unexpected error updating TrustedHosts: {1}" -f (Get-Date -Format s), $_.Exception.Message)
-            If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+            $message = ("{0}: Unexpected error updating TrustedHosts: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+            Write-Host $message; $message | Out-File -Path $logFile -Append
 
             Exit 1
         }
     }
 
-    $message = ("{0}: Checking for the adConfig file on {1}." -f (Get-Date -Format s), $DcFqdn)
-    If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+    $message = ("{0}: Checking for the adConfig file on {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $DcFqdn)
+    Write-Host $message; $message | Out-File -Path $logFile -Append
 
     Try {
-        $backup = Invoke-Command -ComputerName $DcFqdn -Credential $cred -ScriptBlock {
+        $backup = Invoke-Command -ComputerName $DcFqdn -Credential $Credential -ScriptBlock {
             Try {Get-Content -Path C:\Windows\System32\adConfig.json -ErrorAction Stop} Catch {("DC Error: {0}" -f $_.Exception.Message)}
         } -ErrorAction Stop
     }
     Catch {
-        $message = ("{0}: Unexpected error getting the contents of adConfig.json. The error is: {1}" -f (Get-Date -Format s), $_.Exception.Message)
-        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+        $message = ("{0}: Unexpected error getting the contents of adConfig.json. The error is: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+        Write-Host $message; $message | Out-File -Path $logFile -Append
 
         Exit 1
     }
 
     If (($backup) -and ($backup -notmatch "DC Error:")) {
-        $message = ("{0}: Retrieved Active Directory config content." -f (Get-Date -Format s))
-        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
+        $message = ("{0}: Retrieved Active Directory config content." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+        Write-Host $message; $message | Out-File -Path $logFile -Append
 
-        $message = ("{0}: Returning:`r`n." -f (Get-Date -Format s), $backup)
-        If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+        $message = ("{0}: Returning:`r`n." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $backup)
+        Write-Host $message; $message | Out-File -Path $logFile -Append
 
         $backup
-
-        Exit 0
     }
     ElseIf (($backup) -and ($backup -match "DC Error:")) {
-        $message = ("{0}: {1} reported an error retrieving Active Directory config content: {2}." -f (Get-Date -Format s), $DcFqdn, $backup)
-        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
-
-        Exit 1
+        $message = ("{0}: {1} reported an error retrieving Active Directory config content: {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $DcFqdn, $backup)
+        Write-Error $message; $message | Out-File -Path $logFile -Append
     }
     ElseIf ($backup) {
-        $message = ("{0}: Unexpected content retrieved:`r`n{1}." -f (Get-Date -Format s), $backup)
-        If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+        $message = ("{0}: Unexpected content retrieved:`r`n{1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $backup)
+        Write-Error $message; $message | Out-File -Path $logFile -Append
     }
     ElseIf (-NOT($backup)) {
-        $message = ("{0}: No content retrieved." -f (Get-Date -Format s), $DcFqdn)
-        If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile -Append}
-
-        Exit 1
+        $message = ("{0}: No content retrieved." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $DcFqdn)
+        Write-Error $message; $message | Out-File -Path $logFile -Append
     }
 }
 
@@ -102,7 +107,22 @@ Else {
 }
 $logFile = "$logDirPath\configsource-get_adproperties-collection-$server.log"
 
-$message = ("{0}: Calling the function to retrieve the the Active Directory config file from {1}." -f (Get-Date -Format s), $server)
-If ($PSBoundParameters['Verbose']) {Write-Verbose $message; $message | Out-File -FilePath $logFile -Append} Else {$message | Out-File -FilePath $logFile}
+$message = ("{0}: Calling the function to retrieve the the Active Directory config file from {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $server)
+Write-Host $message; $message | Out-File -Path $logFile
 
-Get-JsonFile -DcFqdn $server -Credential $cred -logFile $logFile
+$return = Get-JsonFile -DcFqdn $server -Credential $cred -logFile $logFile
+
+If ($return) {
+    $message = ("{0}: File retrieved, script complete." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+    Write-Host $message; $message | Out-File -Path $logFile -Append
+
+    $return
+
+    Exit 0
+}
+Else {
+    $message = ("{0}: No file retrieved, script complete." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+    Write-Error $message; $message | Out-File -Path $logFile -Append
+
+    Exit 1
+}
