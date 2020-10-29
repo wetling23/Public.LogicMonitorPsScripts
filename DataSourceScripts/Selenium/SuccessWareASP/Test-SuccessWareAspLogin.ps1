@@ -4,6 +4,7 @@
     .NOTES
         Author: Mike Hashemi
         V1.0.0.0 date: 1 October 2020
+        V1.0.0.1 date: 29 October 2020
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Selenium/SuccessWareASP
 #>
@@ -53,10 +54,13 @@ $message = ("{0}: Attempting to load {1}." -f ([datetime]::Now).ToString("yyyy-M
 Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
 Try {
+    $startTime = $Chromedriver.ExecuteScript("return performance.timing.navigationStart")
     $ChromeDriver.Navigate().GoToURL($Url)
     $ChromeDriver.FindElementByName("user").SendKeys($cred.Username) # Methods to find the input textbox for the username and type it into the textbox
     $ChromeDriver.FindElementByName("password").SendKeys($cred.GetNetworkCredential().password) # Methods to find the input textbox for the password and type it into the textbox
     $ChromeDriver.FindElementByName("password").Submit() # We are submitting this info to linkedin for login # From the same textbox, submit this information to Linkedin for logging in
+    $endTime = $ChromeDriver.ExecuteScript("return window.performance.timing.domComplete")
+    $duration = $endTime - $startTime
 }
 Catch {
     $message = ("{0}: Unexpected error loading {1}. Error: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $url, $_.Exception.Message)
@@ -86,6 +90,7 @@ Try {
     Stop-ChromeDriver # Function to make sure Chromedriver process is really ended.
 
     Write-Host ("LoginSuccess=1")
+    Write-Host ("LogonDurationMs={0}" -f $duration)
 
     Exit 0
 }
