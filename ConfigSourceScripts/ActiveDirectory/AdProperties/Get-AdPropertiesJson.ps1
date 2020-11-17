@@ -4,6 +4,7 @@
     .NOTES
         Author: Mike Hashemi
         V1.0.0.1 date: 29 October 2020
+        V1.0.0.2 date: 17 November 2020
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/ActiveDirectory/AdProperties
 #>
@@ -41,26 +42,26 @@ Function Get-JsonFile {
     )
 
     $message = ("{0}: Checking TrustedHosts file." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    Write-Host $message; $message | Out-File -FilePath $logFile -Append
+    $message | Out-File -FilePath $logFile -Append
 
     # Add the target device to TrustedHosts.
     If (($DcFqdn -notmatch (Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts) -and ((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -ne "*") -and ($DcFqdn -ne "127.0.0.1")) {
         $message = ("{0}: Adding {1} to TrustedHosts." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $hostDcFqdnname)
-        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+        $message | Out-File -FilePath $logFile -Append
 
         Try {
             Set-Item -Path WSMan:\localhost\Client\TrustedHosts -Value $DcFqdn -Concatenate -Force -ErrorAction Stop
         }
         Catch {
             $message = ("{0}: Unexpected error updating TrustedHosts: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
-            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+            $message | Out-File -FilePath $logFile -Append
 
             Exit 1
         }
     }
 
     $message = ("{0}: Checking for the adConfig file on {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $DcFqdn)
-    Write-Host $message; $message | Out-File -FilePath $logFile -Append
+    $message | Out-File -FilePath $logFile -Append
 
     Try {
         $return = Invoke-Command -ComputerName $DcFqdn -Credential $Credential -ScriptBlock {
@@ -82,7 +83,7 @@ Function Get-JsonFile {
     }
     Catch {
         $message = ("{0}: Unexpected error getting the contents of adConfig.json. The error is: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
-        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+        $message | Out-File -FilePath $logFile -Append
 
         Return 1
     }
@@ -93,29 +94,29 @@ Function Get-JsonFile {
     }
     Else {
         # Only one item was returned and we assume it is the "message", meaning that there was no backup retrieved.
-        Write-Error $remoteMessage; $remoteMessage | Out-File -FilePath $logFile -Append
+        $remoteMessage | Out-File -FilePath $logFile -Append
 
         Return 1
     }
 
     If ($remoteMessage -match "DC Error:") {
         # Writing the error from the DC.
-        Write-Error $remoteMessage; $remoteMessage | Out-File -FilePath $logFile -Append
+        $remoteMessage | Out-File -FilePath $logFile -Append
 
         Return 1
     }
     ElseIf ($backup) {
         # Writing the error from the DC first.
-        Write-Host $remoteMessage; $remoteMessage | Out-File -FilePath $logFile -Append
+        $remoteMessage | Out-File -FilePath $logFile -Append
 
         $message = ("{0}: Returning:`r`n{1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), ($backup | Out-String))
-        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+        $message | Out-File -FilePath $logFile -Append
 
         $backup
     }
     Else {
         $message = ("{0}: Unexpected or no content retrieved:`r`n{1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $return)
-        Write-Error $message; $message | Out-File -FilePath $logFile -Append
+        $message | Out-File -FilePath $logFile -Append
 
         Return 1
     }
@@ -132,13 +133,13 @@ Else {
 $logFile = "$logDirPath\configsource-get_adproperties-collection-$server.log"
 
 $message = ("{0}: Calling the function to retrieve the the Active Directory config file from {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $server)
-Write-Host $message; $message | Out-File -FilePath $logFile
+$message | Out-File -FilePath $logFile # This script only writes to the log file and not write-host, because the logging was getting mixed up with the JSON data, causing it to appear invalid.
 
 $return = Get-JsonFile -DcFqdn $server -Credential $cred -logFile $logFile
 
 If (($return) -and ($return -ne 1)) {
     $message = ("{0}: Script complete." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    Write-Host $message; $message | Out-File -FilePath $logFile -Append
+    $message | Out-File -FilePath $logFile -Append
 
     $return
 
