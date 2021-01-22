@@ -175,9 +175,15 @@ Write-Host $message; $message | Out-File -FilePath $logFile -Append
 Try {
     $startTime = $chromedriver.ExecuteScript("return performance.timing.navigationStart")
     $chromedriver.Navigate().GoToURL($Url)
-    $chromedriver.FindElementByName("user").SendKeys($cred.Username) # Methods to find the input textbox for the username and type it into the textbox
-    $chromedriver.FindElementByName("password").SendKeys($cred.GetNetworkCredential().password) # Methods to find the input textbox for the password and type it into the textbox
-    $chromedriver.FindElementByName("password").Submit() # We are submitting this info for login
+    Start-Sleep 5 # waiting for page load
+    $chromedriver.FindElementById("Enter user name").SendKeys($cred.Username) # Methods to find the input textbox for the username and type it into the textbox
+    $chromedriver.FindElementById("passwd").SendKeys($cred.GetNetworkCredential().password) # Methods to find the input textbox for the password and type it into the textbox
+    $chromedriver.FindElementById("passwd").Submit()
+    Start-Sleep 5
+    $chromedriver.FindElementById("protocolhandler-welcome-installButton").Click() # "Detect client" button
+    Start-Sleep 3
+    $chromedriver.FindElementById("legalstatement-checkbox2").Click() # Accept the license to clear any hover text
+    $chromedriver.FindElementById("protocolhandler-detect-alreadyInstalledLink").Click() # Skip the client install
     $endTime = $chromedriver.ExecuteScript("return window.performance.timing.domComplete")
     $duration = $endTime - $startTime
 }
@@ -200,8 +206,8 @@ $message = ("{0}: Looking for logoff link." -f ([datetime]::Now).ToString("yyyy-
 Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
 Try {
-    $link = $chromedriver.FindElementById("logoffLink")
-    $link.click()
+    $chromedriver.FindElementById("userMenuBtn").Click()
+    $chromedriver.FindElementById("dropdownLogOffBtn").Click()
 
     $chromedriver.Close()
     $chromedriver.Quit()
