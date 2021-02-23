@@ -3,6 +3,7 @@
         Uses the custom.vdom property to discover VDOM instances on Fortigate devices.
     .NOTES
         V1.0.0.0 date: 14 July 2020
+        V1.0.0.1 date: 23 February 2021
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Fortigate/bgp
 #>
@@ -20,14 +21,14 @@ If (Test-Path -Path "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" -ErrorAct
 Else {
     $logDirPath = "$([System.Environment]::SystemDirectory)" # Directory, into which the log file will be written.
 }
-$logFile = "$logDirPath\datasource-Fortigate_Vdom_Bgp-collection-$hostaddr.log"
+$logFile = "$logDirPath\datasource-Fortigate_Vdom_Bgp-ad-$hostaddr.log"
 
 $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
 If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
 
 If ($vdoms -match ",") { $vdoms = $vdoms.Split(',') }
 
-$message = ("{0}: There are {1} vdoms on the device." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $vdoms.Count)
+$message = ("{0}: There are {1} vdoms on the device ({2})." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $vdoms.Count, ($vdoms | Out-String))
 If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
 
 $message = ("{0}: Beginning snmpwalk, to get BGP peer instances." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
@@ -48,13 +49,11 @@ $vdoms | ForEach-Object {
         $snmpwalkResult | Foreach-Object {
             Write-Host "$($_.value.Split('=')[-1])##$($_.value.Split('=')[-1])####$vdom"
         }
-
-        Exit 0
     }
     Else {
         $message = ("{0}: Found zero instances." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
-
-        Exit 0
     }
 }
+
+Exit 0
