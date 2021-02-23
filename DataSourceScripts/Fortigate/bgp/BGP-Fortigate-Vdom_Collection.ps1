@@ -3,6 +3,7 @@
         Query BGP peer data from Fortigate devices configured with one or more VDOMs configured. 
     .NOTES
         V1.0.0.0 date: 14 July 2020
+        V1.0.0.1 date: 23 February 2021
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Fortigate/bgp
 #>
@@ -21,7 +22,7 @@ If (Test-Path -Path "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" -ErrorAct
 Else {
     $logDirPath = "$([System.Environment]::SystemDirectory)" # Directory, into which the log file will be written.
 }
-$logFile = "$logDirPath\datasource-Fortigate_Vdom_Bgp-ad-$hostaddr.log"
+$logFile = "$logDirPath\datasource-Fortigate_Vdom_Bgp-collection-vdom-$vdom-host-$hostaddr.log"
 
 $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
 If ($PSBoundParameters['Verbose']) { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
