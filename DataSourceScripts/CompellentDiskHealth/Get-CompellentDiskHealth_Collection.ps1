@@ -5,6 +5,7 @@
         Author: Mike Hashemi
         V1.0.0.0 date: 10 September 2019
             - Initial release
+        V1.0.0.1 date: 30 March 2021
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/CompellentDiskHealth
     .PARAMETER SerialNumber
@@ -88,38 +89,249 @@ Try {
         $logDirPath = "$([System.Environment]::SystemDirectory)" # Directory, into which the log file will be written.
     }
     $logFile = "$logDirPath\datasource-Compellent_Disk_Health-collection-$StorageManager.log"
+    $exitCode = 0
 
-    $message = ("{0}: Beginning {1}." -f [datetime]::Now, $MyInvocation.MyCommand)
+    $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
 
-    $message = ("{0}: serial number: {1}." -f [datetime]::Now, $SerialNumber)
+    $message = ("{0}: serial number: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $SerialNumber)
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
-    Try {
-        Import-Module -Name "$($ModulePath.FullName)" -ErrorAction Stop
-    }
-    Catch {
-        $message = ("{0}: Unable to import the Dell Storage PowerShell SDK module. The specific error is: {1}." -f [datetime]::Now, $_.Exception.Message)
-        If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; $message | Out-File -FilePath $logFile -Append }
-    }
 
-    $message = ("{0}: Working with:`r`nSerial number: {1}`r`nStorage manager: {2}`r`nUser: {3}" -f [datetime]::Now, $SerialNumber, $StorageManager, $UserName)
+    $message = ("{0}: Working with:`r`nSerial number: {1}`r`nStorage manager: {2}`r`nUser: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $SerialNumber, $StorageManager, $UserName)
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
     #endregion initialize variables
 
+    If (($StorageManager -eq $env:ComputerName) -or ($StorageManager -eq "127.0.0.1")) {
+        $message = ("{0}: Operating locally." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+        $message = ("{0}: Attempting to import the PowerShell module from {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ModulePath)
+        If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
+
+        Try {
+            Import-Module -Name "$($ModulePath.FullName)" -ErrorAction Stop
+        } Catch {
+            $message = ("{0}: Unable to import the Dell Storage PowerShell SDK module. The specific error is: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+            If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; $message | Out-File -FilePath $logFile -Append }
+
+            Exit 0
+        }
+
+        Try {
+            $message = ("{0}: Attempting to connect to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $StorageManager)
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+            $conn = Connect-DellApiConnection -HostName $StorageManager -User $UserName -Password $Password -ErrorAction Stop
+        } Catch {
+            $message = ("{0}: Error connecting to the storage manager. The error is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+            Write-Error $message; $message | Out-File -FilePath $logFile -Append
+
+            Exit 1
+        }
+
+        $message = ("{0}: Connection successful, attempting to retrieve data." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+        If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+        $disks = Get-DellScDisk -ScSerialNumber $SerialNumber -Connection $conn
+        $diskStats = Get-DellScDiskStats -ScSerialNumber $SerialNumber -Connection $conn
+        $diskConfig = Get-DellScDiskConfiguration -ScSerialNumber $SerialNumber -Connection $conn
+
+        If ($disks.Count -gt 0) {
+            $message = ("{0}: Retrieved disk properties." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $StorageManager)
+            If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+            Foreach ($disk in $disks) {
+                If ($disk.instanceId -eq $InstanceId) {
+                    $message = ("{0}: Reporting properties of disk {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $InstanceId)
+                    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+
+                    $properties = [PSCustomObject]@{
+                        AllocatedSpace         = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).AllocatedSpace
+                        AllocatedSpaceGB       = (($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).AllocatedSpace).ByteSize / 1GB
+                        BadSpace               = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).BadSpace
+                        BadSpaceGB             = (($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).BadSpace).ByteSize / 1GB
+                        FreeSpace              = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).FreeSpace
+                        FreeSpaceGB            = (($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).FreeSpace).ByteSize / 1GB
+                        ManufacturerCapacity   = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ManufacturerCapacity
+                        ManufacturerCapacityGB = (($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ManufacturerCapacity).ByteSize / 1GB
+                        DiskEraseCapability    = ($disks | Where-Object { $_.InstanceId -eq $InstanceId }).DiskEraseCapability
+                        PathAlertInformation   = ($diskConfig | Where-Object { $_.InstanceId -eq $InstanceId }).PathAlertInformation
+                        Endurance              = ($disks | Where-Object { $_.InstanceId -eq $InstanceId }).Endurance
+                        HealthDescription      = ($diskConfig | Where-Object { $_.InstanceId -eq $InstanceId }).HealthDescription
+                        HealthDescriptionInt   = If (($diskConfig | Where-Object { $_.InstanceId -eq $InstanceId }).HealthDescription -eq 'Healthy') { 0 } Else { 1 }
+                        PowerOnTimeHours       = ($disks | Where-Object { $_.InstanceId -eq $InstanceId }).PowerOnTimeHours
+                        ReadBlockCount         = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ReadBlockCount
+                        ReadErrorCount         = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ReadErrorCount
+                        ReadRequestCount       = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ReadRequestCount
+                        WriteBlockCount        = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).WriteBlockCount
+                        WriteErrorCount        = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).WriteErrorCount
+                        WriteRequestCount      = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).WriteRequestCount
+                        ScName                 = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ScName
+                        ScSerialNumber         = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ScSerialNumber
+                        InstanceId             = $InstanceId
+                        InstanceName           = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).InstanceName
+                        ObjectType             = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ObjectType
+                    }
+
+                    $properties
+                }
+            }
+
+            Exit 0
+        } Else {
+            $message = ("{0}: No disk data retrieved." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+            Write-Error $message; $message | Out-File -FilePath $logFile -Append
+
+            Exit 1
+        }
+    }
+    Else {
+        $message = ("{0}: Operating remotely." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+        $pw = @'
+##wmi.pass##
+'@
+        [pscredential]$credential = New-Object System.Management.Automation.PSCredential ('##wmi.user##', ($pw | ConvertTo-SecureString -AsPlainText -Force))
+
+        Foreach ($sn in $SerialNumber) {
+            $response = Invoke-Command -ComputerName $StorageManager -Credential $credential -ScriptBlock {
+                param (
+                    [string]$StorageManager,
+                    [string]$Username,
+                    [securestring]$Password,
+                    [string]$SerialNumber,
+                    [string]$InstanceId,
+                    $ModulePath
+                )
+
+                $serverMessage = ""
+
+                $serverMessage = ("{0}: Attempting to import the PowerShell module from {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ModulePath)
+
+                Try {
+                    Import-Module -Name "$($ModulePath.FullName)" -ErrorAction Stop
+                } Catch {
+                    $serverMessage += ("{0}: Unable to import the Dell Storage PowerShell SDK module. The specific error is: {1}`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+
+                    Return 0, $serverMessage
+                }
+
+                Try {
+                    $serverMessage += ("{0}: Attempting to connect to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $StorageManager)
+
+                    $conn = Connect-DellApiConnection -HostName $StorageManager -User $UserName -Password $Password -ErrorAction Stop
+                } Catch {
+                    $serverMessage += ("{0}: Error connecting to the storage manager. The error is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+
+                    Return 1
+                }
+
+                $serverMessage += ("{0}: Connection successful, attempting to retrieve data." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+
+                $disks = Get-DellScDisk -ScSerialNumber $SerialNumber -Connection $conn
+                $diskStats = Get-DellScDiskStats -ScSerialNumber $SerialNumber -Connection $conn
+                $diskConfig = Get-DellScDiskConfiguration -ScSerialNumber $SerialNumber -Connection $conn
+
+                If ($disks.Count -gt 0) {
+                    $serverMessage += ("{0}: Retrieved disk properties." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $StorageManager)
+
+                    Foreach ($disk in $disks) {
+                        If ($disk.instanceId -eq $InstanceId) {
+                            $serverMessage += ("{0}: Reporting properties of disk {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $InstanceId)
+
+                            $properties = [PSCustomObject]@{
+                                AllocatedSpace         = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).AllocatedSpace
+                                AllocatedSpaceGB       = (($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).AllocatedSpace).ByteSize / 1GB
+                                BadSpace               = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).BadSpace
+                                BadSpaceGB             = (($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).BadSpace).ByteSize / 1GB
+                                FreeSpace              = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).FreeSpace
+                                FreeSpaceGB            = (($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).FreeSpace).ByteSize / 1GB
+                                ManufacturerCapacity   = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ManufacturerCapacity
+                                ManufacturerCapacityGB = (($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ManufacturerCapacity).ByteSize / 1GB
+                                DiskEraseCapability    = ($disks | Where-Object { $_.InstanceId -eq $InstanceId }).DiskEraseCapability
+                                PathAlertInformation   = ($diskConfig | Where-Object { $_.InstanceId -eq $InstanceId }).PathAlertInformation
+                                Endurance              = ($disks | Where-Object { $_.InstanceId -eq $InstanceId }).Endurance
+                                HealthDescription      = ($diskConfig | Where-Object { $_.InstanceId -eq $InstanceId }).HealthDescription
+                                HealthDescriptionInt   = If (($diskConfig | Where-Object { $_.InstanceId -eq $InstanceId }).HealthDescription -eq 'Healthy') { 0 } Else { 1 }
+                                PowerOnTimeHours       = ($disks | Where-Object { $_.InstanceId -eq $InstanceId }).PowerOnTimeHours
+                                ReadBlockCount         = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ReadBlockCount
+                                ReadErrorCount         = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ReadErrorCount
+                                ReadRequestCount       = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ReadRequestCount
+                                WriteBlockCount        = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).WriteBlockCount
+                                WriteErrorCount        = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).WriteErrorCount
+                                WriteRequestCount      = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).WriteRequestCount
+                                ScName                 = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ScName
+                                ScSerialNumber         = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ScSerialNumber
+                                InstanceId             = $InstanceId
+                                InstanceName           = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).InstanceName
+                                ObjectType             = ($diskStats | Where-Object { $_.InstanceId -eq $InstanceId }).ObjectType
+                            }
+
+                            Return 0, $serverMessage, $properties
+                        }
+                    }
+                } Else {
+                    $serverMessage += ("{0}: No disk data retrieved." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+
+                    Return 1, $serverMessage
+                }
+            } -ArgumentList $StorageManager, $Username, $Password, $SerialNumber, $InstanceId, $ModulePath
+
+            If ($response[0] -eq 1) {
+                $exitCode = 1
+            }
+
+            If ($response -is [system.array]) {
+                # Adding response to the DataSource log.
+                Write-Host $response[1]; $response[1] | Out-File -FilePath $logFile -Append
+
+                # Spitting out the disk properties, so LM can parse them into datapoints.
+                $response[2]
+            } Else {
+                $message = ("{0}: No/partial response. To prevent errors, {1} will exit. The value of `$response is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, ($response | Out-String))
+                Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+                $exitCode = 1
+            }
+        }
+
+        Exit $exitCode
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     Try {
-        $message = ("{0}: Attempting to connect to {1}." -f [datetime]::Now, $StorageManager)
+        $message = ("{0}: Attempting to connect to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $StorageManager)
         If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
         $conn = Connect-DellApiConnection -HostName $StorageManager -User $UserName -Password $Password -ErrorAction Stop
     }
     Catch {
-        $message = ("{0}: Error connecting to the storage manager. The error is: {1}." -f [datetime]::Now, $_.Exception.Message)
+        $message = ("{0}: Error connecting to the storage manager. The error is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
         Write-Error $message; $message | Out-File -FilePath $logFile -Append
 
         Exit 1
     }
 
-    $message = ("{0}: Connection successful, attempting to retrieve data." -f [datetime]::Now)
+    $message = ("{0}: Connection successful, attempting to retrieve data." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
     $disks = Get-DellScDisk -ScSerialNumber $SerialNumber -Connection $conn
@@ -127,12 +339,12 @@ Try {
     $diskConfig = Get-DellScDiskConfiguration -ScSerialNumber $SerialNumber -Connection $conn
 
     If ($disks.Count -gt 0) {
-        $message = ("{0}: Retrieved disk properties." -f [datetime]::Now, $StorageManager)
+        $message = ("{0}: Retrieved disk properties." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $StorageManager)
         If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
         Foreach ($disk in $disks) {
             If ($disk.instanceId -eq $InstanceId) {
-                $message = ("{0}: Reporting properties of disk {1}." -f [datetime]::Now, $InstanceId)
+                $message = ("{0}: Reporting properties of disk {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $InstanceId)
                 If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
 
                 $properties = [PSCustomObject]@{
@@ -170,14 +382,14 @@ Try {
         Exit 0
     }
     Else {
-        $message = ("{0}: No disk data retrieved." -f [datetime]::Now)
+        $message = ("{0}: No disk data retrieved." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         Write-Error $message; $message | Out-File -FilePath $logFile -Append
 
         Exit 1
     }
 }
 Catch {
-    $message = ("{0}: Unexepected error in {1}. The command was `"{2}`" and the specific error was: {3}" -f [datetime]::Now, $MyInvocation.MyCommand, $_.InvocationInfo.MyCommand.Name, $_.Exception.Message)
+    $message = ("{0}: Unexepected error in {1}. The command was `"{2}`" and the specific error was: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, $_.InvocationInfo.MyCommand.Name, $_.Exception.Message)
     Write-Error $message; $message | Out-File -FilePath $logFile -Append
 
     Exit 1

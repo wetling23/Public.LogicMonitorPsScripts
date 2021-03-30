@@ -5,6 +5,7 @@
         Author: Mike Hashemi
         V1.0.0.0 date: 10 September 2019
             - Initial release
+        V1.0.0.1 date: 30 March 2021
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/CompellentDiskHealth
     .PARAMETER SerialNumber
@@ -61,7 +62,7 @@ param(
 
 Try {
     #region Initialize variables
-        If (-NOT($SerialNumber)) {
+    If (-NOT($SerialNumber)) {
         $SerialNumber = '##custom.compellentSsn##'
     }
     If (-NOT($StorageManager)) {
@@ -82,66 +83,161 @@ Try {
     }
     $logFile = "$logDirPath\datasource-Compellent_Disk_Health-ad-$StorageManager.log"
 
-    $message = ("{0}: Beginning {1}." -f [datetime]::Now, $MyInvocation.MyCommand)
-    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
-
-    $progressCounter = 0
+    $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
+    Write-Host $message; $message | Out-File -FilePath $logFile
 
     If ($SerialNumber -match ',') {
         $SerialNumber = $SerialNumber -split ','
     }
 
-    $message = ("{0}: Attempting to import the PowerShell module from {1}." -f [datetime]::Now, $ModulePath)
-    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
-
-    Try {
-        Import-Module -Name "$($ModulePath.FullName)" -ErrorAction Stop
-    }
-    Catch {
-        $message = ("{0}: Unable to import the Dell Storage PowerShell SDK module. The specific error is: {1}." -f [datetime]::Now, $_.Exception.Message)
-        If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; $message | Out-File -FilePath $logFile -Append }
-    }
-
-    $message = ("{0}: Working with:`r`nSerial number: {1}`r`nStorage manager: {2}`r`nUser: {3}" -f [datetime]::Now, ($SerialNumber -join ', '), $StorageManager, $UserName)
-    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+    $message = ("{0}: Working with:`r`nSerial number: {1}`r`nStorage manager: {2}`r`nUser: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), ($SerialNumber -join ', '), $StorageManager, $UserName)
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
     #endregion initialize variables
 
-    Try {
-        $message = ("{0}: Attempting to connect to {1}." -f [datetime]::Now, $StorageManager)
-        If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+    #region Main
+    If (($StorageManager -eq $env:ComputerName) -or ($StorageManager -eq "127.0.0.1")) {
+        $message = ("{0}: Operating locally." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
-        $conn = Connect-DellApiConnection -HostName $StorageManager -User $UserName -Password $Password -ErrorAction Stop
-    }
-    Catch {
-        $message = ("{0}: Error connecting to the storage manager. The error is: {1}." -f [datetime]::Now, $_.Exception.Message)
-        Write-Error $message; $message | Out-File -FilePath $logFile -Append
+        $message = ("{0}: Attempting to import the PowerShell module from {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ModulePath)
+        If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
 
-        Exit 1
-    }
+        Try {
+            Import-Module -Name "$($ModulePath.FullName)" -ErrorAction Stop
+        } Catch {
+            $message = ("{0}: Unable to import the Dell Storage PowerShell SDK module. The specific error is: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+            If ($BlockLogging) { Write-Error $message } Else { Write-Error $message; $message | Out-File -FilePath $logFile -Append }
 
-    Foreach ($sn in $SerialNumber) {
-        $message = ("{0}: Connection successful, attempting to retrieve data from the array with serial number {1}." -f [datetime]::Now, $sn)
-        If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+            Exit 0
+        }
 
-        $disks = Get-DellScDisk -ScSerialNumber $sn -Connection $conn
+        Try {
+            $message = ("{0}: Attempting to connect to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $StorageManager)
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
-        If ($disks.Count -gt 0) {
-            $message = ("{0}: Retrieved disk properties." -f [datetime]::Now, $StorageManager)
-            If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+            $conn = Connect-DellApiConnection -HostName $StorageManager -User $UserName -Password $Password -ErrorAction Stop
+        } Catch {
+            $message = ("{0}: Error connecting to the storage manager. The error is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+            Write-Error $message; $message | Out-File -FilePath $logFile -Append
 
-            Foreach ($disk in $disks) {
-                $message = ("{0}: Returning {1} and {2}." -f [datetime]::Now, $disk.ScName, $disk.instanceId)
-                If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile -Append } Else { $message | Out-File -FilePath $logFile -Append }
+            Exit 1
+        }
 
-                Write-Host "$($disk.instanceId)##$($disk.UniqueName)/$($disk.ScName)##$sn####auto.compellentssn=$sn"
+        Foreach ($sn in $SerialNumber) {
+            $message = ("{0}: Connection successful, attempting to retrieve data from the array with serial number {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $sn)
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+            $disks = Get-DellScDisk -ScSerialNumber $sn -Connection $conn
+
+            If ($disks.Count -gt 0) {
+                $message = ("{0}: Retrieved disk properties." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $StorageManager)
+                Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+                Foreach ($disk in $disks) {
+                    $message = ("{0}: Returning {1} and {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $disk.ScName, $disk.instanceId)
+                    Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+                    Write-Host "$($disk.instanceId)##$($disk.UniqueName)/$($disk.ScName)##$sn####auto.compellentssn=$sn"
+                }
             }
         }
-    }
 
-    Exit 0
+        Exit 0
+    }
+    Else {
+        $message = ("{0}: Operating remotely." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+        $pw = @'
+##wmi.pass##
+'@
+        [pscredential]$credential = New-Object System.Management.Automation.PSCredential ('##wmi.user##', ($pw | ConvertTo-SecureString -AsPlainText -Force))
+
+        # If necessary, update TrustedHosts.
+        If (((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -notmatch $StorageManager) -and ((Get-WSManInstance -ResourceURI winrm/config/client).TrustedHosts -ne "*")) {
+            $message = ("{0}: Adding {1} to TrustedHosts." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $StorageManager)
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+            Try {
+                Set-Item -Path WSMan:\localhost\Client\TrustedHosts -Value $StorageManager -Concatenate -Force -ErrorAction Stop
+            } Catch {
+                $message = ("{0}: Unexpected error updating TrustedHosts: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+                Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+                Exit 1
+            }
+        } Else {
+            $message = ("{0}: {1} is already in TrustedHosts." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $StorageManager)
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+        }
+
+        $response = Invoke-Command -ComputerName $StorageManager -Credential $credential -ScriptBlock {
+            param (
+                [string]$StorageManager,
+                [string]$Username,
+                [securestring]$Password,
+                [array]$SerialNumber,
+                $ModulePath
+            )
+
+            $serverMessage = ""
+
+            $serverMessage = ("{0}: Attempting to import the PowerShell module from {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ModulePath)
+
+            Try {
+                Import-Module -Name "$($ModulePath.FullName)" -ErrorAction Stop
+            } Catch {
+                $serverMessage += ("{0}: Unable to import the Dell Storage PowerShell SDK module. The specific error is: {1}`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+
+                Return 0, $serverMessage
+            }
+
+            Try {
+                $serverMessage += ("{0}: Attempting to connect to {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $StorageManager)
+
+                $conn = Connect-DellApiConnection -HostName $StorageManager -User $UserName -Password $Password -ErrorAction Stop
+            } Catch {
+                $serverMessage += ("{0}: Error connecting to the storage manager. The error is: {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+
+                Return 1, $serverMessage
+            }
+
+            Foreach ($sn in $SerialNumber) {
+                $serverMessage += ("{0}: Connection successful, attempting to retrieve data from the array with serial number {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $sn)
+
+                $disks = Get-DellScDisk -ScSerialNumber $sn -Connection $conn
+
+                If ($disks.Count -gt 0) {
+                    $serverMessage += ("{0}: Retrieved disk properties.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $StorageManager)
+
+                    Foreach ($disk in $disks) {
+                        $serverMessage += ("{0}: Returning {1} and {2}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $disk.ScName, $disk.instanceId)
+
+                        Write-Host "$($disk.instanceId)##$($disk.UniqueName)/$($disk.ScName)##$sn####auto.compellentssn=$sn"
+                    }
+                }
+            }
+
+            Return 0, $serverMessage
+        } -ArgumentList $StorageManager, $Username, $Password, $SerialNumber, $ModulePath
+
+        If ($response -is [system.array]) {
+            # Adding response to the DataSource log.
+            Write-Host $response[1]; $response[1] | Out-File -FilePath $logFile -Append
+
+            Exit $response[0]
+        }
+        Else {
+            $message = ("{0}: No/partial response. To prevent errors, {1} will exit. The value of `$response is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, ($response | Out-String))
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+            Exit 1
+        }
+    }
+    #endregion Main
 }
 Catch {
-    $message = ("{0}: Unexepected error in {1}. The command was `"{2}`" and the specific error was: {3}" -f [datetime]::Now, $MyInvocation.MyCommand, $_.InvocationInfo.MyCommand.Name, $_.Exception.Message)
+    $message = ("{0}: Unexepected error in {1}. The command was `"{2}`" and the specific error was: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, $_.InvocationInfo.MyCommand.Name, $_.Exception.Message)
     Write-Error $message; $message | Out-File -FilePath $logFile -Append
 
     Exit 1
