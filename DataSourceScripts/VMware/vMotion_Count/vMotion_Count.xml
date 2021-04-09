@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<feed  version="1.0" hasPendingRequests="false" >
+  <company></company>
+  <status>200</status>
+  <errmsg>OK</errmsg>
+  <interval>0</interval>
+    <entry type="predatasource">
+        <version>1617979710</version>
+        <name>vMotion_Count</name>
+        <displayedas>vMotion Count</displayedas>
+        <description>Return the number of vMotion events in the lookback period (default 65 minutes).</description>
+        <collector>script</collector>
+        <hasMultiInstances>false</hasMultiInstances>
+        <schedule>3600</schedule>
+        <appliesTo>system.displayname == &#34;vc00-gen3-roc1&#34;</appliesTo>
+        <wildcardauto>false</wildcardauto>
+        <wildcardpersist>false</wildcardpersist>
+        <wildcardlinuxscript></wildcardlinuxscript>
+        <wildcardlinuxcmdline></wildcardlinuxcmdline>
+        <wildcardwinscript></wildcardwinscript>
+        <wildcardwincmdline></wildcardwincmdline>
+        <wildcardgroovyscript></wildcardgroovyscript>
+        <wildcardschedule>1440</wildcardschedule>
+        <wildcarddisable>false</wildcarddisable>
+        <wildcarddeleteinactive>false</wildcarddeleteinactive>
+        <agdmethod>none</agdmethod>
+        <agdparams></agdparams>
+        <group></group>
+        <tags></tags>
+        <technology>Requires PowerCLI PowerShell module.</technology>
+        <adlist><![CDATA[{"agdmethod":"none","agdparams":"","id":0,"filters":[],"params":{}}]]></adlist>
+        <schemaVersion>2</schemaVersion>
+        <dataSourceType>1</dataSourceType>
+        <attributes>
+        <attribute>
+            <name>scripttype</name>
+            <value>powerShell</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>scriptgroovy</name>
+            <value>&#60;#
+    .DESCRIPTION
+        Use PowerCLI to query VMware (vCenter or host) for vMotion events and return a count of vMotions.
+    .NOTES
+        Author: Mike Hashemi
+        V1.0.0.0 date: 9 April 2021
+            - Initial release. Based on Get-VMotion from https://github.com/brianbunke/vCmdlets.
+
+        Use the device property, vmotion.lookbackminutes to control the maximum event age. If this property is ommitted, the default value is 65 minutes.
+    .LINK
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/VMware/vMotion_Count
+#&#62;
+#Requires -Version 3 -Module VMware.VimAutomation.Core
+[CmdletBinding()]
+param ()
+
+Try {
+    #region Setup
+    # Initialize variables.
+    $computerName = &#34;##HOSTNAME##&#34; # Target host for the script to query.
+    If (Test-Path -Path &#34;C:\Program Files (x86)\LogicMonitor\Agent\Logs&#34; -ErrorAction SilentlyContinue) {
+        $logDirPath = &#34;C:\Program Files (x86)\LogicMonitor\Agent\Logs&#34; # Directory, into which the log file will be written.
+    } Else {
+        $logDirPath = &#34;$([System.Environment]::SystemDirectory)&#34; # Directory, into which the log file will be written.
+    }
+    $logFile = &#34;$logDirPath\datasource-vMotion_Count-collection-$computerName.log&#34;
+
+    [int]$minutes = &#34;##vmotion.lookbackminutes##&#34;
+    $pw = @&#39;
+##esx.pass##
+&#39;@
+    [pscredential]$credential = New-Object System.Management.Automation.PSCredential (&#39;##esx.user##&#39;, ($pw | ConvertTo-SecureString -AsPlainText -Force))
+    $exitCode = 0
+
+    Remove-Variable -Name pw -Force -ErrorAction SilentlyContinue
+
+    $message = (&#34;{0}: Beginning {1}.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $MyInvocation.MyCommand)
+    Write-Host $message; $message | Out-File -FilePath $logFile
+
+    If ($minutes -le 0) {
+        $message = (&#34;{0}: No lookback defined, defaulting to 65 minutes.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $MyInvocation.MyCommand)
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+        $time = (Get-Date).AddMinutes(-65).ToUniversalTime()
+    }
+    Else {
+        $time = (Get-Date).AddMinutes(-$minutes).ToUniversalTime()
+    }
+
+    $message = (&#34;{0}: Attempting to connect to {1}.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $computerName)
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+    $session = Connect-VIServer -Server $computerName -Credential $credential -Force
+
+    If ($session.Name) {
+        $message = (&#34;{0}: Successfully connected to {1}.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $computerName)
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+    }
+    Else {
+        $message = (&#34;{0}: Connection failed, exiting. If available, the message is:`r`n{1}.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $session)
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+        Exit 1
+    }
+    #endregion Setup
+
+    #region Main
+    $Events = New-Object System.Collections.ArrayList
+    $EventFilter = New-Object VMware.Vim.EventFilterSpec
+    $EventFilter.Entity = New-Object VMware.Vim.EventFilterSpecByEntity
+    $EventFilter.Time = New-Object VMware.Vim.EventFilterSpecByTime
+    $EventFilter.Time.BeginTime = $Time
+    $EventFilter.DisableFullMessage = $true
+    $EventFilter.EventTypeID = @(
+        &#39;com.vmware.vc.vm.VmHotMigratingWithEncryptionEvent&#39;,
+        &#39;DrsVmMigratedEvent&#39;,
+        &#39;VmBeingHotMigratedEvent&#39;,
+        &#39;VmBeingMigratedEvent&#39;,
+        &#39;VmMigratedEvent&#39;
+    )
+    $EventMgr = Get-View EventManager -Server $vCenter -Verbose:$false -Debug:$false
+    $InventoryObjects = Get-Datacenter -Server $vCenter -Verbose:$false -Debug:$false
+
+    ForEach ($object in $InventoryObjects) {
+        $EventFilter.Entity.Entity = $object.ExtensionData.MoRef
+        $EventFilter.Entity.Recursion = &#38; {
+            If ($object.ExtensionData.MoRef.Type -eq &#39;VirtualMachine&#39;) { &#39;self&#39; } Else { &#39;all&#39; }
+        }
+
+        $message = (&#34;{0}: Calling Get-View to gather event results for object {1}.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $($object.Name))
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+        $CollectorSplat = @{
+            Server  = $vCenter
+            Verbose = $false
+            Debug   = $false
+        }
+
+        $Collector = Get-View ($EventMgr).CreateCollectorForEvents($EventFilter) @CollectorSplat
+        $Buffer = $Collector.ReadNextEvents(100)
+
+        If (-not $Buffer) {
+            $message = (&#34;{0}: No vMotion events found.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;))
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+            Write-Host (&#34;vMotionCount=0&#34;)
+
+            Disconnect-VIServer -Confirm:$false
+            Exit $exitCode
+        }
+
+        While ($Buffer) {
+            $EventCount = ($Buffer | Measure-Object).Count
+            $message = (&#34;{0}: Found {1} events, processing for vMotion.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $EventCount)
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+            # Append up to 100 results into the $Events array
+            If ($EventCount -gt 1) {
+                # .AddRange if more than one event
+                $null = $Events.AddRange($Buffer)
+            } Else {
+                # .Add if only one event; should never happen since gathering begin &#38; end events
+                $null = $Events.Add($Buffer) | Out-Null
+            }
+            # Were there more than 100 results? Get the next batch and restart the While loop
+            $Buffer = $Collector.ReadNextEvents(100)
+        }
+        # Destroy the collector after each entity to avoid running out of memory :)
+        $Collector.DestroyCollector()
+    }
+
+    $Results = New-Object System.Collections.Generic.List[object]
+
+    ForEach ($vMotion in ($Events | Sort-Object CreatedTime | Group-Object ChainID)) {
+        # Each vMotion should have start and finish events
+        # &#34;% 2&#34; correctly processes duplicate vMotion results
+        # (duplicate results can occur, for example, if you have duplicate vCenter connections open)
+        If ($vMotion.Group.Count % 2 -eq 0) {
+            # New 6.5 migration event type is changing fields around on me
+            If ($vMotion.Group[0].EventTypeID -eq &#39;com.vmware.vc.vm.VmHotMigratingWithEncryptionEvent&#39;) {
+                $DstDC = ($vMotion.Group[0].Arguments | Where-Object { $_.Key -eq &#39;destDatacenter&#39; }).Value
+                $DstDS = ($vMotion.Group[0].Arguments | Where-Object { $_.Key -eq &#39;destDatastore&#39; }).Value
+                $DstHost = ($vMotion.Group[0].Arguments | Where-Object { $_.Key -eq &#39;destHost&#39; }).Value
+            } Else {
+                $DstDC = $vMotion.Group[0].DestDatacenter.Name
+                $DstDS = $vMotion.Group[0].DestDatastore.Name
+                $DstHost = $vMotion.Group[0].DestHost.Name
+            } #If &#39;com.vmware.vc.vm.VmHotMigratingWithEncryptionEvent&#39;
+
+            # Mark the current vMotion as vMotion / Storage vMotion / Both
+            If ($vMotion.Group[0].Ds.Name -eq $DstDS) {
+                $Type = &#39;vMotion&#39;
+            } ElseIf ($vMotion.Group[0].Host.Name -eq $DstHost) {
+                $Type = &#39;s-vMotion&#39;
+            } Else {
+                $Type = &#39;Both&#39;
+            }
+
+            # Add the current vMotion into the $Results list
+            $Results.Add([PSCustomObject][Ordered]@{
+                    PSTypeName = &#39;vMotion.Object&#39;
+                    Name       = $vMotion.Group[0].Vm.Name
+                    Type       = $Type
+                    SrcHost    = $vMotion.Group[0].Host.Name
+                    DstHost    = $DstHost
+                    SrcDS      = $vMotion.Group[0].Ds.Name
+                    DstDS      = $DstDS
+                    SrcCluster = $vMotion.Group[0].ComputeResource.Name
+                    DstCluster = $vMotion.Group[1].ComputeResource.Name
+                    SrcDC      = $vMotion.Group[0].Datacenter.Name
+                    DstDC      = $DstDC
+                    # Hopefully people aren&#39;t performing vMotions that take &#62;24 hours, because I&#39;m ignoring days in the string
+                    Duration   = (New-TimeSpan -Start $vMotion.Group[0].CreatedTime -End $vMotion.Group[1].CreatedTime).ToString(&#39;hh\:mm\:ss&#39;)
+                    StartTime  = $vMotion.Group[0].CreatedTime.ToLocalTime()
+                    EndTime    = $vMotion.Group[1].CreatedTime.ToLocalTime()
+                    # Making an assumption that all events with an empty username are DRS-initiated
+                    Username   = &#38; { If ($vMotion.Group[0].UserName) { $vMotion.Group[0].UserName } Else { &#39;DRS&#39; } }
+                    ChainID    = $vMotion.Group[0].ChainID
+                })
+        } #If vMotion Group % 2
+        ElseIf ($vMotion.Group.Count % 2 -eq 1) {
+            $message = (&#34;{0}: vMotion chain ID {1} had an odd number of events; cannot match start/end times. Inspect `$vMotion for more details.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $($vMotion.Group[0].ChainID -join &#39;, &#39;))
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+            $exitCode = 1
+        }
+    }
+
+    If ($results.Name.Count -gt 0) {
+        $message = (&#34;{0}: vMotion entries:`r`n{1}&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), ($results | Format-List -Property * | Out-String))
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+        Write-Host (&#34;vMotionCount={0}&#34; -f $results.Name.Count)
+
+        Disconnect-VIServer -Confirm:$false
+        Exit $exitCode
+    }
+    Else {
+        $message = (&#34;{0}: No results.&#34; -f ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;))
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+        Write-Host (&#34;vMotionCount=0&#34;)
+
+        Disconnect-VIServer -Confirm:$false
+        Exit $exitCode
+    }
+    #endregion Main
+} Catch {
+    $message = (&#34;{0}: Unexpected error in {1}. The error occurred at line {2}, the command was `&#34;{3}`&#34;, and the specific error is: {4}&#34; -f `
+        ([datetime]::Now).ToString(&#34;yyyy-MM-dd`THH:mm:ss&#34;), $MyInvocation.MyCommand, $_.InvocationInfo.ScriptLineNumber, $_.InvocationInfo.MyCommand.Name, $_.Exception.Message)
+    Write-Host $message; $message | Out-File -FilePath $logFile
+
+    Exit 1
+}</value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>windowsscript</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>linuxscript</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>windowscmdline</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        <attribute>
+            <name>linuxcmdline</name>
+            <value></value>
+            <comment></comment>
+        </attribute>
+        </attributes>
+        <datapoints>
+        <datapoint>
+            <name>ScriptStatus</name>
+            <dataType>4</dataType>
+            <type>2</type>
+            <postprocessormethod>none</postprocessormethod>
+            <postprocessorparam></postprocessorparam>
+            <usevalue>exitCode</usevalue>
+            <alertexpr>!= 0 0</alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody>The DataSource script encountered an error. See the log file (&#60;Program Files x86&#62;\LogicMonitor\Agent\logs\datasource-vMotion_Count-collection-&#60;IP address&#62;.log) on the collector, for details.</alertbody>
+            <enableanomalyalertsuppression></enableanomalyalertsuppression>
+            <adadvsettingenabled>false</adadvsettingenabled>
+            <warnadadvsetting></warnadadvsetting>
+            <erroradadvsetting></erroradadvsetting>
+            <criticaladadvsetting></criticaladadvsetting>
+            <description>If this datapoint generates an alert, it means that the DataSource script encountered an error. See the log file (&#60;Program Files x86&#62;\datasource-vMotion_Count-collection-&#60;IP address&#62;.log) on the collector, for details.</description>
+            <maxvalue></maxvalue>
+            <minvalue></minvalue>
+            <userparam1></userparam1>
+            <userparam2></userparam2>
+            <userparam3></userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        <datapoint>
+            <name>vMotionCount</name>
+            <dataType>7</dataType>
+            <type>2</type>
+            <postprocessormethod>regex</postprocessormethod>
+            <postprocessorparam>vMotionCount=(\d+)</postprocessorparam>
+            <usevalue>output</usevalue>
+            <alertexpr></alertexpr>
+            <alertmissing>1</alertmissing>
+            <alertsubject></alertsubject>
+            <alertbody></alertbody>
+            <enableanomalyalertsuppression></enableanomalyalertsuppression>
+            <adadvsettingenabled>false</adadvsettingenabled>
+            <warnadadvsetting></warnadadvsetting>
+            <erroradadvsetting></erroradadvsetting>
+            <criticaladadvsetting></criticaladadvsetting>
+            <description>The number of vMotion events detected in the past number-of-minutes (65 by default, or the value specificed in vmotion.lookbackminutes).</description>
+            <maxvalue></maxvalue>
+            <minvalue></minvalue>
+            <userparam1></userparam1>
+            <userparam2></userparam2>
+            <userparam3></userparam3>
+            <iscomposite>false</iscomposite>
+            <rpn></rpn>
+            <alertTransitionIval>0</alertTransitionIval>
+            <alertClearTransitionIval>0</alertClearTransitionIval>
+        </datapoint>
+        </datapoints>
+        <graphs>
+        </graphs>
+        <overviewgraphs>
+        </overviewgraphs>
+        <scripts>
+        </scripts>
+    </entry>
+</feed>
