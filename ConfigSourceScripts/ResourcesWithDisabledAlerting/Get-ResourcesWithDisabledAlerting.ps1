@@ -214,10 +214,10 @@ If ($customerName) {
     }
 }
 
-$message = ("{0}: Device filter:`r`n`t{1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $deviceFilter)
+$message = ("{0}: Device filter:`r`n`t{1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $deviceFilter)
 Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
-$message = ("{0}: Website filter:`r`n`t{1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $websiteFilter)
+$message = ("{0}: Website filter:`r`n`t{1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $websiteFilter)
 Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
 $output = Get-ResourceAlertingDisabled -AccessId $accessId -AccessKey $accessKey -AccountName $accountName -DeviceFilter $deviceFilter -WebsiteFilter $websiteFilter -LogFile $logFile
