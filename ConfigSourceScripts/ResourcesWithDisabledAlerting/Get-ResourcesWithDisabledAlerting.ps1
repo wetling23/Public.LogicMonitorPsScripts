@@ -46,7 +46,7 @@ Function Get-ResourceAlertingDisabled {
     )
 
     $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-    Write-Host $message; $message | Out-File -FilePath $LogFile -Append
+    $message | Out-File -FilePath $LogFile -Append
 
     If ([Console]::InputEncoding -is [Text.UTF8Encoding] -and [Console]::InputEncoding.GetPreamble().Length -ne 0) {
         [Console]::InputEncoding = New-Object Text.UTF8Encoding $false
@@ -54,7 +54,7 @@ Function Get-ResourceAlertingDisabled {
 
     #region Get data
     $message = ("{0}: Starting job to retrieve all devices." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    Write-Host $message; $message | Out-File -FilePath $LogFile -Append
+    $message | Out-File -FilePath $LogFile -Append
 
     $null = Start-Job -Name GetDevices -ScriptBlock {
         param(
@@ -68,13 +68,13 @@ Function Get-ResourceAlertingDisabled {
         $devices = (Get-LogicMonitorDevice -AccessId $AccessId -AccessKey $AccessKey -AccountName $AccountName -Filter $DeviceFilter -Verbose -LogPath $LogFile).Where( { $_.alertDisableStatus -ne 'none-none-none' } )
 
         $message = ("{0}: `$devices contains {1} objects." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $devices.id.count)
-        Write-Host $message; $message | Out-File -FilePath $LogFile -Append
+        $message | Out-File -FilePath $LogFile -Append
 
         $devices
     } -ArgumentList $AccessId, $AccessKey, $AccountName, $DeviceFilter, $LogFile
 
     $message = ("{0}: Starting job to retrieve all websites." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    Write-Host $message; $message | Out-File -FilePath $LogFile -Append
+    $message | Out-File -FilePath $LogFile -Append
 
     $null = Start-Job -Name GetWebsites -ScriptBlock {
         param(
@@ -88,7 +88,7 @@ Function Get-ResourceAlertingDisabled {
         $websites = (Get-LogicMonitorWebsite -AccessId $AccessId -AccessKey $AccessKey -AccountName $AccountName -Filter $WebsiteFilter -LogPath $LogFile).Where( { $_.alertDisableStatus -ne 'none-none-none' } )
 
         $message = ("{0}: `$websites contains {1} objects." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $websites.id.count)
-        Write-Host $message; $message | Out-File -FilePath $LogFile -Append
+        $message | Out-File -FilePath $LogFile -Append
 
         $websites
     } -ArgumentList $AccessId, $AccessKey, $AccountName, $WebsiteFilter, $LogFile
@@ -112,14 +112,14 @@ Function Get-ResourceAlertingDisabled {
         }
 
         $message = ("{0}: Job(s) not done, waiting 15 seconds." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-        Write-Host $message; $message | Out-File -FilePath $LogFile -Append
+        $message | Out-File -FilePath $LogFile -Append
 
         Start-Sleep -Seconds 15
     }
     While ($getDevicesRunning -or $getWebsitesRunning)
 
     $message = ("{0}: Retrieving data from the jobs." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    Write-Host $message; $message | Out-File -FilePath $LogFile -Append
+    $message | Out-File -FilePath $LogFile -Append
 
     $alertingDisabledDevices = [System.Collections.Generic.List[PSObject]]@(Receive-Job -Name GetDevices; Remove-Job -Name GetDevices)
     $alertingDisabledWebsites = [System.Collections.Generic.List[PSObject]]@(Receive-Job -Name GetWebsites; Remove-Job -Name GetWebsites)
@@ -132,13 +132,13 @@ Function Get-ResourceAlertingDisabled {
     }
     Else {
         $message = ("{0}: Retrieved a total of {1} (filtered) devices and {2} (filtered) websites." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $alertingDisabledDevices.id.Count, $alertingDisabledWebsites.id.Count)
-        Write-Host $message; $message | Out-File -FilePath $LogFile -Append
+        $message | Out-File -FilePath $LogFile -Append
     }
     #endregion Get data
 
     #region Process data
     $message = ("{0}: Generating output for devices with disabled alerting." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    Write-Host $message; $message | Out-File -FilePath $LogFile -Append
+    $message | Out-File -FilePath $LogFile -Append
 
     $deviceOutput = $alertingDisabledDevices | ForEach-Object {
         $alertingStatus = $_.alertDisableStatus -split '-'
@@ -147,7 +147,7 @@ Function Get-ResourceAlertingDisabled {
     }
 
     $message = ("{0}: Generating output for websites with disabled alerting." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    Write-Host $message; $message | Out-File -FilePath $LogFile -Append
+    $message | Out-File -FilePath $LogFile -Append
 
     $websiteOutput = $alertingDisabledWebsites | ForEach-Object {
         $alertingStatus = $_.alertDisableStatus -split '-'
@@ -157,7 +157,7 @@ Function Get-ResourceAlertingDisabled {
     #endregion Process data
 
     $message = ("{0}: Found {1} devices and {2} websites. Returning data." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $deviceOutput.Count, $websiteOutput.Count)
-    Write-Host $message; $message | Out-File -FilePath $LogFile -Append
+    $message | Out-File -FilePath $LogFile -Append
 
     $deviceOutput
     $websiteOutput
@@ -185,7 +185,7 @@ Else {
 $logFile = "$logDirPath\configsource-Resources_With_Disabled_Alerting-collection-$server.log"
 
 $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-Write-Host $message; $message | Out-File -FilePath $logFile
+$message | Out-File -FilePath $logFile
 
 If (-NOT (Get-Module -Name LogicMonitor -ListAvailable)) {
     $message = ("{0}: The required LogicMonitor PowerShell module is not installed, attempting to install it." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
@@ -203,7 +203,7 @@ If (-NOT (Get-Module -Name LogicMonitor -ListAvailable)) {
 }
 
 $message = ("{0}: Calling Get-ResourceAlertingDisabled with {1} for {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $accessId, $accountName)
-Write-Host $message; $message | Out-File -FilePath $logFile -Append
+$message | Out-File -FilePath $logFile -Append
 
 If ($customerName) {
     $deviceFilter = "filter=systemProperties.value~`"$customerName`""
@@ -215,22 +215,22 @@ If ($customerName) {
 }
 
 $message = ("{0}: Device filter:`r`n`t{1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $deviceFilter)
-Write-Host $message; $message | Out-File -FilePath $logFile -Append
+$message | Out-File -FilePath $logFile -Append
 
 $message = ("{0}: Website filter:`r`n`t{1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $websiteFilter)
-Write-Host $message; $message | Out-File -FilePath $logFile -Append
+$message | Out-File -FilePath $logFile -Append
 
 $output = Get-ResourceAlertingDisabled -AccessId $accessId -AccessKey $accessKey -AccountName $accountName -DeviceFilter $deviceFilter -WebsiteFilter $websiteFilter -LogFile $logFile
 
 If ($output.id.Count -gt 0) {
     $message = ("{0}: A total of {1} resources found." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $output.Count)
-    Write-Host $message; $message | Out-File -FilePath $logFile -Append
+    $message | Out-File -FilePath $logFile -Append
 
     $output | ConvertTo-Csv -NoTypeInformation
 }
 Else {
     $message = ("{0}: Zero resources found." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $output.Count)
-    Write-Host $message; $message | Out-File -FilePath $logFile -Append
+    $message | Out-File -FilePath $logFile -Append
 }
 
 $timer.Stop()
