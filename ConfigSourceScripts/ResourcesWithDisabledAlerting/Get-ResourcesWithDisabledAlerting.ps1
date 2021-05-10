@@ -65,7 +65,7 @@ Function Get-ResourceAlertingDisabled {
             $LogFile
         )
 
-        $devices = (Get-LogicMonitorDevice -AccessId $AccessId -AccessKey $AccessKey -AccountName $AccountName -Filter $DeviceFilter -Verbose -LogPath $LogFile).Where( { $_.alertDisableStatus -ne 'none-none-none' } )
+        $devices = (Get-LogicMonitorDevice -AccessId $AccessId -AccessKey $AccessKey -AccountName $AccountName -Filter $DeviceFilter).Where( { $_.alertDisableStatus -ne 'none-none-none' } )
 
         $message = ("{0}: `$devices contains {1} objects." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $devices.id.count)
         $message | Out-File -FilePath $LogFile -Append
@@ -85,7 +85,7 @@ Function Get-ResourceAlertingDisabled {
             $LogFile
         )
 
-        $websites = (Get-LogicMonitorWebsite -AccessId $AccessId -AccessKey $AccessKey -AccountName $AccountName -Filter $WebsiteFilter -LogPath $LogFile).Where( { $_.alertDisableStatus -ne 'none-none-none' } )
+        $websites = (Get-LogicMonitorWebsite -AccessId $AccessId -AccessKey $AccessKey -AccountName $AccountName -Filter $WebsiteFilter).Where( { $_.alertDisableStatus -ne 'none-none-none' } )
 
         $message = ("{0}: `$websites contains {1} objects." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $websites.id.count)
         $message | Out-File -FilePath $LogFile -Append
@@ -189,7 +189,7 @@ $message | Out-File -FilePath $logFile
 
 If (-NOT (Get-Module -Name LogicMonitor -ListAvailable)) {
     $message = ("{0}: The required LogicMonitor PowerShell module is not installed, attempting to install it." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    If (($PSBoundParameters['Verbose']) -or $VerbosePreference -eq 'Continue') { Write-Verbose $message; $message | Out-File -FilePath $logFile } Else { $message | Out-File -FilePath $logFile }
+    $message | Out-File -FilePath $logFile -Append
 
     Try {
         Install-Module -Name LogicMonitor -Force -ErrorAction Stop
@@ -207,7 +207,7 @@ $message | Out-File -FilePath $logFile -Append
 
 If ($customerName) {
     $deviceFilter = "filter=systemProperties.value~`"$customerName`""
-    $websiteGroupId = (Get-LogicMonitorWebsiteGroup -AccessId $accessId -AccessKey $accessKey -AccountName $accountName -Filter "filter=name:`"$CustomerName`"" -LogPath $logFile).id
+    $websiteGroupId = (Get-LogicMonitorWebsiteGroup -AccessId $accessId -AccessKey $accessKey -AccountName $accountName -Filter "filter=name:`"$CustomerName`"").id
 
     If ($websiteGroupId) {
         $websiteFilter = "filter=groupId:$websiteGroupId"
