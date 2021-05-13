@@ -6,7 +6,8 @@
         V1.0.0.0 date: 18 September 2019
             - Initial release
         V1.0.0.1 date: 14 October 2019
-        V1.0.0.2 date: 10 May 2020
+        V1.0.0.2 date: 10 May 2021
+        V1.0.0.3 date: 13 May 2021
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/ResourcesWithDisabledAlerting
     .EXAMPLE
@@ -202,15 +203,20 @@ If (-NOT (Get-Module -Name LogicMonitor -ListAvailable)) {
     }
 }
 
-$message = ("{0}: Calling Get-ResourceAlertingDisabled with {1} for {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $accessId, $accountName)
-$message | Out-File -FilePath $logFile -Append
+Switch ($customerName) {
+    "All" {
+        $message = ("{0}: Getting all disabled devices." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+        $message | Out-File -FilePath $logFile -Append
 
-If ($customerName) {
-    $deviceFilter = "filter=systemProperties.value~`"$customerName`""
-    $websiteGroupId = (Get-LogicMonitorWebsiteGroup -AccessId $accessId -AccessKey $accessKey -AccountName $accountName -Filter "filter=name:`"$CustomerName`"").id
+        Continue
+    }
+    Default {
+        $deviceFilter = "filter=systemProperties.value~`"$customerName`""
+        $websiteGroupId = (Get-LogicMonitorWebsiteGroup -AccessId $accessId -AccessKey $accessKey -AccountName $accountName -Filter "filter=name:`"$CustomerName`"").id
 
-    If ($websiteGroupId) {
-        $websiteFilter = "filter=groupId:$websiteGroupId"
+        If ($websiteGroupId) {
+            $websiteFilter = "filter=groupId:$websiteGroupId"
+        }
     }
 }
 
@@ -218,6 +224,9 @@ $message = ("{0}: Device filter:`r`n`t{1}" -f ([datetime]::Now).ToString("yyyy-M
 $message | Out-File -FilePath $logFile -Append
 
 $message = ("{0}: Website filter:`r`n`t{1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $websiteFilter)
+$message | Out-File -FilePath $logFile -Append
+
+$message = ("{0}: Calling Get-ResourceAlertingDisabled with {1} for {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $accessId, $accountName)
 $message | Out-File -FilePath $logFile -Append
 
 $output = Get-ResourceAlertingDisabled -AccessId $accessId -AccessKey $accessKey -AccountName $accountName -DeviceFilter $deviceFilter -WebsiteFilter $websiteFilter -LogFile $logFile
