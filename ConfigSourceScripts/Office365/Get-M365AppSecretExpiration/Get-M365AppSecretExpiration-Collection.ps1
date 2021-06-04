@@ -3,6 +3,9 @@
         Connect to Microsoft 365 (Azure AD) to retrieve application secrets.
     .NOTES
         V1.0.0.0 date: 28 May 2021
+        V1.0.0.1 date: 4 June 2021
+
+        The app secret requires Application.Read.All, Directory.Read.All, and User.Read.
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/Office365
 #>
@@ -79,6 +82,18 @@ While ($response.'@odata.nextLink')
 #region Main
 Foreach ($app in $allApps) {
     $i++
+    $url = "https://graph.microsoft.com/v1.0/applications/$($app.id)/owners"
+
+    $message = ("{0}: Getting owner data for {1}. This is {2} of {3}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $app.displayName, $i, $allApps.id.Count)
+    $message | Out-File -FilePath $logFile -Append
+
+    Try {
+        $response = (Invoke-RestMethod -Headers @{ Authorization = "Bearer $($token)" } -Uri $url -Method Get -ErrorAction Stop).value
+    }
+    Catch {
+        $message = ("{0}: Unexpected error getting app owner. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+        $message | Out-File -FilePath $logFile -Append
+    }
 
     $message = ("{0}: Getting data from secret {1}. This is {2} of {3}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $app.displayName, $i, $allApps.id.Count)
     $message | Out-File -FilePath $logFile -Append
@@ -119,6 +134,7 @@ Foreach ($app in $allApps) {
                 RemainingSecretDays = $daysLeft
                 SecretDisplayName   = $secret.passwordCredentials.displayName
                 HomePageUrl         = $app.web.homePageUrl
+                AppOwner            = $response.userPrincipalName
                 ExpiresInLessThan60 = $alert
             })
     }
