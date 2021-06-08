@@ -3,6 +3,7 @@
         Connect to Microsoft 365 to the list of service health advisories.
     .NOTES
         V1.0.0.0 date: 24 May 2021
+        V1.0.0.1 date: 8 June 2021
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/Get-M365ServiceHealthAdvisories/Office365
 #>
@@ -12,8 +13,8 @@ param ()
 #region Setup
 # Initialize variables
 $computer = "##SYSTEM.HOSTNAME##"
-$clientID = "##custom.m365.clientId##"
-$clientSecret = "##custom.m365.clientSecret##"
+$clientID = "##custom.m365.sha.client.id##"
+$clientSecret = "##custom.m365.sha.client.pass##"
 $tenantId = "##custom.m365.tenantId##"
 $uri = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages"
 
