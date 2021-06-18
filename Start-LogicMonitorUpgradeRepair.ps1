@@ -7,6 +7,7 @@
         Author: Mike Hashemi
         V1.0.0.0 date: 12 November 2019
             - Initial release
+        V1.0.0.1 date: 18 June 2021
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Start-LogicMonitorUpgradeRepair.ps1
     .EXAMPLE
@@ -24,6 +25,9 @@ If (-NOT(Get-Service -Name logicmonitor* -ErrorAction SilentlyContinue)) {
     Exit 0
 }
 
+# Initialize variables.
+$paths = @('C:\Program Files (x86)\LogicMonitor\Agent\bin\sbshutdown.exe', 'C:\Program Files (x86)\LogicMonitor\Agent\lib\sbwinproxy.exe')
+
 Try {
     $message = ("{0}: Attempting to stop the LogicMonitor watchdog and agent services." -f [datetime]::Now)
     Write-Host $message
@@ -40,27 +44,25 @@ Catch {
 }
 
 If (Get-ChildItem -Path 'C:\Program Files (x86)\LogicMonitor\Agent\tmp') {
-    "sbshutdown.exe", "sbwinproxy.exe" | ForEach-Object {
-        $message = ("{0}: Attempting to remove {1} from the lib directory, before copying in a new version." -f [datetime]::Now, $_)
+    Foreach ($path in $paths) {
+        $message = ("{0}: Attempting to remove {1} from the lib directory, before copying in a new version." -f [datetime]::Now, (Split-Path -Path $path -Leaf))
         Write-Host $message
 
         Try {
-            Remove-Item -Path "C:\Program Files (x86)\LogicMonitor\Agent\lib\$_" -Force -ErrorAction Stop
-        }
-        Catch {
+            Remove-Item -Path $path -Force -ErrorAction Stop
+        } Catch {
             $message = ("{0}: Unexpected error removing the file. To prevent errors, {1} will exit. The specific error is: {2}." -f [datetime]::Now, $MyInvocation.MyCommand, $_.Exception.Message)
             Write-Host $message
 
             Exit 1
         }
 
-        $message = ("{0}: Attempting to copy {1} from the tmp directory, to the lib directory." -f [datetime]::Now, $_)
+        $message = ("{0}: Attempting to copy {1} from the tmp directory, to the lib directory." -f [datetime]::Now, (Split-Path -Path $path -Leaf))
         Write-Host $message
 
         Try {
-            Get-ChildItem -Path 'C:\Program Files (x86)\LogicMonitor\Agent\tmp' -Include $_ -Recurse | Copy-Item -Destination 'C:\Program Files (x86)\LogicMonitor\Agent\lib' -Force -ErrorAction Stop
-        }
-        Catch {
+            Get-ChildItem -Path 'C:\Program Files (x86)\LogicMonitor\Agent\tmp' -Include (Split-Path -Path $path -Leaf) -Recurse | Copy-Item -Destination (Split-Path -Path $path -Parent) -Force -ErrorAction Stop
+        } Catch {
             $message = ("{0}: Unexpected error copying the file. To prevent errors, {1} will exit. The specific error is: {2}." -f [datetime]::Now, $MyInvocation.MyCommand, $_.Exception.Message)
             Write-Host $message
 
