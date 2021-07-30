@@ -9,6 +9,7 @@
         V1.0.0.2 date: 24 April 2020
         V1.0.0.3 date: 28 October 2020
         V1.0.0.4 date: 13 May 2021
+        V1.0.0.5 date: 30 July 2021
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Reports/ThresholdReport-Script.ps1
     .PARAMETER AccessId
@@ -18,7 +19,19 @@
     .PARAMETER AccountName
         Mandatory parameter. Represents the subdomain of the LogicMonitor customer.
     .PARAMETER GroupName
-        When included, the script will filter the list or retrieved devices, to include only those in the specified device group.
+        Represents the name of the desired LogicMonitor resource group. When included, the script will filter the list or retrieved devices, to include only those in the specified device group.
+    .PARAMETER GroupId
+        Represents the ID of the desired LogicMonitor resource group. When included, the script will filter the list or retrieved devices, to include only those in the specified device group.
+    .PARAMETER GroupFilter
+        Represents a string matching the API's filter format. This parameter can be used to filter for groups matching certain criteria (e.g. "wmi.user" appears in customProperties).
+
+        See https://www.logicmonitor.com/support/rest-api-developers-guide/v1/devices/get-devices#Example-Request-5--GET-all-devices-that-have-a-spe
+    .PARAMETER DeviceFilter
+        Represents a string matching the API's filter format. This parameter can be used to filter for devices matching certain criteria (e.g. "Microsoft Windows Server 2012 R2 Standard" appears in systemProperties).
+
+        See https://www.logicmonitor.com/support/rest-api-developers-guide/v1/devices/get-devices#Example-Request-5--GET-all-devices-that-have-a-spe
+    .PARAMETER Recursive
+        When included, the script will identify all subgroups of the provided group (GroupName or GroupId) and will retrieve threshold data for devices in all of them. When ommitted, only data for devices in the identified group will be returned.
     .PARAMETER OutputPath
         When provided, the script will output the report to this path.
     .PARAMETER EventLogSource
@@ -42,7 +55,11 @@
 
         In this example, the script gets all devices from LogicMonitor, in the group with ID 12345 and its sub-groups, and generates a threshold report for them. This is useful for cloud monitoring groups. Limited logging is written to the console host only. Output is sent only to the host.
     .EXAMPLE
-        PS C:\> .\ThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -Filter 'filter=systemProperties.value:"Microsoft Windows Server 2012 R2 Standard"'
+        PS C:\> .\ThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -GroupFilter 'filter=fullPath:location/servers/exchange'
+
+        In this example, the script gets all devices from LogicMonitor, with "location/servers/exchange" in the fullPath property, and generates a threshold report for them. Limited logging is written to the console host only. Output is sent only to the host.
+    .EXAMPLE
+        PS C:\> .\ThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -DeviceFilter 'filter=systemProperties.value:"Microsoft Windows Server 2012 R2 Standard"'
 
         In this example, the script gets all devices from LogicMonitor, with "Microsoft Windows Server 2012 R2 Standard" in the system propreties, and generates a threshold report for them. Limited logging is written to the console host only. Output is sent only to the host.
 #>
@@ -63,8 +80,16 @@ Param (
     [Parameter(Mandatory, ParameterSetName = 'IdFilter')]
     [string]$GroupId,
 
-    [Parameter(Mandatory, ParameterSetName = 'StringFilter')]
-    [string]$Filter,
+    [Parameter(Mandatory, ParameterSetName = 'GroupStringFilter')]
+    [string]$GroupFilter,
+
+    [Parameter(Mandatory, ParameterSetName = 'DeviceStringFilter')]
+    [string]$DeviceFilter,
+
+    [Parameter(ParameterSetName = 'GroupFilter')]
+    [parameter(ParameterSetName = 'IdFilter')]
+    [parameter(ParameterSetName = 'GroupStringFilter')]
+    [switch]$Recursive,
 
     [ValidateScript( {
             If (-NOT ($_ | Test-Path) ) {
@@ -88,7 +113,11 @@ If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $Event
 
 # Initialize variables.
 $reportList = [System.Collections.Generic.List[PSObject]]::new()
+$devices = [System.Collections.Generic.List[PSObject]]::new()
+$searchedGroups = [System.Collections.Generic.List[PSObject]]::new()
+$groupsToCheckForSubGroups = [System.Collections.Generic.List[PSObject]]::new()
 $progressCounter = 0
+$fileId = $GroupId
 $httpVerb = 'GET'
 
 If ($PSBoundParameters['Verbose']) {
@@ -125,128 +154,97 @@ $commandParams = @{
     AccountName = $AccountName
 }
 
-If ($Filter) {
-    $commandParams.Add("Filter", $Filter)
-}
-
-If ($GroupId) {
-    $message = ("{0}: Attempting to get all sub-groups of {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $GroupId)
-    If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
-
-    $resourcePath = "/device/groups/$GroupId"
-    $queryParams = $null
-
-    # Get current time in milliseconds
-    $epoch = [Math]::Round((New-TimeSpan -Start (Get-Date -Date "1/1/1970") -End (Get-Date).ToUniversalTime()).TotalMilliseconds)
-
-    # Concatenate Request Details
-    $requestVars = $httpVerb + $epoch + $resourcePath
-
-    # Construct Signature
-    $hmac = New-Object System.Security.Cryptography.HMACSHA256
-    $hmac.Key = [Text.Encoding]::UTF8.GetBytes([System.Runtime.InteropServices.Marshal]::PtrToStringAuto(([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($AccessKey))))
-    $signatureBytes = $hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($requestVars))
-    $signatureHex = [System.BitConverter]::ToString($signatureBytes) -replace '-'
-    $signature = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($signatureHex.ToLower()))
-
-    # Construct Headers
-    $headers = @{
-        "Authorization" = "LMv1 $accessId`:$signature`:$epoch"
-        "Content-Type"  = "application/json"
-        "X-Version"     = 2
+Switch ($PsCmdlet.ParameterSetName) {
+    "GroupStringFilter" {
+        $GroupId = (Get-LogicMonitorDeviceGroup -Filter $Filter @commandParams @loggingParams).id
     }
+    "GroupFilter" {
+        $GroupId = (Get-LogicMonitorDeviceGroup -Name $GroupName @commandParams @loggingParams).id
+    }
+    { $_ -in "GroupFilter", "IdFilter", "GroupStringFilter" } {
+        If ($GroupId.Count -eq 1) {
+            $message = ("{0}: Proceeding with GroupId: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $GroupId)
+            If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
+        } ElseIf ($GroupId.Count -gt 1) {
+            $message = ("{0}: Found {1} group IDs, selecting one and adding the other to the list of groups to check." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $GroupId.Count)
+            If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
-    $url = "https://$AccountName.logicmonitor.com/santaba/rest$resourcePath$queryParams"
+            Foreach ($id in $GroupId) {
+                $groupsToCheckForSubGroups.Add($id)
+            }
 
-    $stopLoop = $false
-    Do {
-        Try {
-            $response = Invoke-RestMethod -Uri $url -Method $httpVerb -Header $headers -ErrorAction Stop
+            $GroupId = $groupProps[0]
+        } Else {
+            $message = ("{0}: Unable to locate the desired group(s). {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
+            If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message } }
 
-            $stopLoop = $True
-        } Catch {
-            If ($_.Exception.Message -match '429') {
-                $message = ("{0}: Rate limit exceeded, retrying in 60 seconds." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, $_.Exception.Message)
-                If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Warning -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Warning -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Warning -Message $message }
+            Exit 1
+        }
 
-                Start-Sleep -Seconds 60
-            } ElseIf ($_.ErrorDetails -match 'invalid filter') {
-                $message = ("{0}: LogicMonitor returned `"invalid filter`". Please validate the value of the -Filter parameter and try again." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-                If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message -BlockStdErr $BlockStdErr } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message -BlockStdErr $BlockStdErr } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message -BlockStdErr $BlockStdErr }
+        If ($Recursive) {
+            $message = ("{0}: Attempting to get all sub-groups of {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $GroupId)
+            If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
-                Return "Error"
-            } Else {
-                $message = ("{0}: Unexpected error getting groups. To prevent errors, {1} will exit. If present, the following details were returned:`r`n
-                Error message: {2}`r
-                Error code: {3}`r
-                Invoke-Request: {4}`r
-                Headers: {5}`r
-                Body: {6}" -f
-                    ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, ($_ | ConvertFrom-Json -ErrorAction SilentlyContinue | Select-Object -ExpandProperty errorMessage),
-                    ($_ | ConvertFrom-Json -ErrorAction SilentlyContinue | Select-Object -ExpandProperty errorCode), $_.Exception.Message, ($headers | Out-String), ($data | Out-String)
-                )
-                If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message -BlockStdErr $BlockStdErr } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message -BlockStdErr $BlockStdErr } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message -BlockStdErr $BlockStdErr }
+            Do {
+                $groupProps = (Get-LogicMonitorDeviceGroup -Id $GroupId @commandParams @loggingParams)
+                $searchedGroups.Add($GroupId)
 
-                Return "Error"
+                If ($groupProps.subGroups) {
+                    Foreach ($group in $groupProps.subGroups.id) {
+                        $groupsToCheckForSubGroups.Add($group)
+                    }
+                }
+
+                $GroupId = $groupsToCheckForSubGroups | Where-Object { $_ -notin $searchedGroups } | Select-Object -First 1
+
+                $null = $groupsToCheckForSubGroups.Remove($GroupId)
+            } While ($groupsToCheckForSubGroups)
+        } Else {
+            Foreach ($group in $GroupId) {
+                # Filling $searchedGroups this way, in case GroupId is an array. If it is, $searchedGroups considers that one item, which will cause problems when we gry to get devices in the foreach loop below.
+                $searchedGroups.Add($group)
+            }
+        }
+
+        Foreach ($group in $searchedGroups) {
+            $groupDevices = $null
+
+            $message = ("{0}: Attempting to get devices from group {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $group)
+            If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
+
+            $groupDevices = Get-LogicMonitorDevice -AccessId $accessid -AccessKey $accesskey -AccountName $AccountName -Filter "filter=hostGroupIds~$($group)" @loggingParams
+            Foreach ($device in $groupDevices) {
+                $devices.Add($device)
             }
         }
     }
-    While ($stopLoop -eq $false)
-
-    If ($response.subGroups) {
-        $message = ("{0}: Retrieved {1} groups under {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $response.subGroups.Count, $GroupId)
-        If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
-
-        $allLmDevices = Foreach ($group in $response.subGroups) {
-            $message = ("{0}: Attempting to get devices from group {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $group.id)
-            If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
-
-            Get-LogicMonitorDevice -AccessId $accessid -AccessKey $accesskey -AccountName $AccountName -Filter "filter=hostGroupIds~$($group.id)" @loggingParams
-        }
-
-        $message = ("{0}: Retrieved {1} devices under {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $allLmDevices.id.Count, $GroupId)
-        If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
+    "AllDevices" {
+        $devices = Get-LogicMonitorDevice @commandParams @loggingParams
     }
-} Else {
-    $allLmDevices = Get-LogicMonitorDevice @commandParams @loggingParams
+    "DeviceStringFilter" {
+        $devices = Get-LogicMonitorDevice -Filter $DeviceFilter @commandParams @loggingParams
+    }
 }
 
-If ($allLmDevices -eq "Error") {
+If (($devices -eq "Error") -or ($devices.id.Count -lt 1)) {
     $message = ("{0}: Too few devices retrieved. To prevent errors, {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
     If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
 
     Exit 1
 }
 
+$message = ("{0}: Retrieved a total of {1} devices." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $devices.id.Count)
+If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
+
 Switch ($PsCmdlet.ParameterSetName) {
     "GroupFilter" {
         $fileName = "thresholdReport-$GroupName.csv"
-
-        $message = ("{0}: Filtering for devices in group {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $GroupName)
-        If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
-
-        $devices = ($allLmDevices).Where( { ($_.systemProperties.name -eq 'system.groups') -and ($_.systemProperties.value -match $GroupName) })
-
-        Remove-Variable allLmDevices -Force
-
-        $message = ("{0}: Found {1} devices in group {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $devices.Count, $GroupName)
-        If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
     }
     { $_ -in ("IdFilter", "StringFilter") } {
-        If (-NOT($GroupId)) { $fileName = "thresholdReport-$(([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")).csv" } Else { $fileName = "thresholdReport-$GroupId.csv" }
-
-        $devices = $allLmDevices
-        Remove-Variable allLmDevices -Force
+        If (-NOT($fileId)) { $fileName = "thresholdReport-$(([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")).csv" } Else { $fileName = "thresholdReport-$fileId.csv" }
     }
     "AllDevices" {
         $fileName = "thresholdReport-AllDevices.csv"
-
-        $message = ("{0}: No device filter applied. There are {1} devices." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $allLmDevices.Count)
-        If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
-
-        $devices = $allLmDevices
-
-        Remove-Variable allLmDevices -Force
     }
 }
 
