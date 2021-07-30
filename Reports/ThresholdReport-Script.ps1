@@ -198,7 +198,8 @@ Switch ($PsCmdlet.ParameterSetName) {
                 $GroupId = $groupsToCheckForSubGroups | Where-Object { $_ -notin $searchedGroups } | Select-Object -First 1
 
                 $null = $groupsToCheckForSubGroups.Remove($GroupId)
-            } While ($groupsToCheckForSubGroups)
+
+            } While ($GroupId)
         } Else {
             Foreach ($group in $GroupId) {
                 # Filling $searchedGroups this way, in case GroupId is an array. If it is, $searchedGroups considers that one item, which will cause problems when we gry to get devices in the foreach loop below.
