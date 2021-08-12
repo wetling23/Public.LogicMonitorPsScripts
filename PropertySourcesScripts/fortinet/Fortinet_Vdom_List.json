@@ -1,0 +1,46 @@
+{
+    "scheduleOption": 0,
+    "dataType": 0,
+    "description": "",
+    "appliesTo": "system.displayname == \"EQX-CH3-SFFCU-FW-1\" || system.displayname == \"EQX-SE2-CENOV-FW-1\"",
+    "technology": "",
+    "type": "propertyrule",
+    "params": [
+        {
+            "name": "linuxcmdline",
+            "comment": "",
+            "value": ""
+        },
+        {
+            "name": "linuxscript",
+            "comment": "",
+            "value": ""
+        },
+        {
+            "name": "scriptgroovy",
+            "comment": "",
+            "value": "/*******************************************************************************\r\n- Based on input from Stuart Weenig (https://github.com/sweenig/monitoring-recipes/blob/master/DataSources/Groovy/Expect/Groovy_Expect_Example.groovy)\r\n- Repo link: \r\n******************************************************************************/\r\n\r\nimport com.santaba.agent.groovyapi.expect.Expect\r\n\r\nhostname = hostProps.get(\"system.hostname\")\r\nuserid = hostProps.get(\"ssh.user\")\r\npasswd = hostProps.get(\"ssh.pass\")\r\ndef list = new ArrayList()\r\n\r\ntry {\r\n    try {\r\n        ssh_connection = Expect.open(hostname, userid, passwd)\r\n    }\r\n    catch (all) {\r\n        println \"Failed to connect to ${hostname} as ${userid}. Error: ${all.getMessage()}\"\r\n\r\n        return 1\r\n    }\r\n\r\n    //println \"Running 'config vdom' command.\"\r\n    try {\r\n        ssh_connection.expect(\"# \")\r\n        ssh_connection.send(\"config vdom\\n\")\r\n        ssh_connection.expect(\"# \")\r\n    }\r\n    catch (all) {\r\n        println \"Failed to enter vdom config. Error: ${all.getMessage()}\"\r\n\r\n        return 1\r\n    }\r\n\r\n    //println \"Collecting the output of 'config vdom'.\"\r\n    try {\r\n        cmd_output = ssh_connection.before()\r\n    }\r\n    catch (all) {\r\n        println \"Failed to collect output. Error: ${all.getMessage()}\"\r\n\r\n        return 1\r\n    }\r\n\r\n    try {\r\n        if (cmd_output =~ /\\(vdom\\)/) {\r\n            //println \"Successfully entered vdom config, running the 'edit' command.\"\r\n            ssh_connection.send(\"edit ?\\n\")\r\n            ssh_connection.expect(\"# \")\r\n        }\r\n    }\r\n    catch (all) {\r\n        println \"Unexpected error running 'edit'. Error: ${all.getMessage()}\"\r\n\r\n        return 1\r\n    }\r\n\r\n    //println \"Collecting the output of 'edit'.\"\r\n    try {\r\n        cmd_output2 = ssh_connection.before()\r\n    }\r\n    catch (all) {\r\n        println \"Failed to collect output. Error: ${all.getMessage()}\"\r\n\r\n        return 1\r\n    }\r\n\r\n    //println \"Attempting to parse the list of VDOMs.\"\r\n    try {\r\n        if (cmd_output2.contains(\"Command fail\")) {\r\n            println \"No VDOMs in the list variable.\"\r\n\r\n            return 0\r\n        }\r\n        else {\r\n            cmd_output2.eachLine { line ->\r\n                if (!(line =~ /\\<vdom\\>/) && !(line =~ /^\\s*$/) && !(line =~ \"edit\") && !(line =~ /\\(vdom\\)/) && !(line =~ /config vdom/)) {\r\n                    //println \"Adding '${line}' to the list of configured VDOMs.\"\r\n                    list.add(line)\r\n                }\r\n            }\r\n        }\r\n    }\r\n    catch (all) {\r\n        println \"Unexpected error parsing the list of VDOMs. Error: ${all.getMessage()}\"\r\n\r\n        return 1\r\n    }\r\n\r\n    //println \"Exiting VDOM config.\"\r\n    try {\r\n        ssh_connection.send(\"\\025\")\r\n        ssh_connection.send(\"abort\\n\")\r\n    }\r\n    catch (all) {\r\n        println \"Unexpected error exiting VDOM config. Error: ${all.getMessage()}\"\r\n\r\n        return 1\r\n    }\r\n\r\n    if (list) {\r\n        //println \"Returning vdoms:\"\r\n        println \"fortinet.vdomlist=${list.join(\",\")}\"\r\n    }\r\n    else {\r\n        println \"No VDOMs in the list variable.\"\r\n    }\r\n\r\n    return 0\r\n}\r\ncatch (Exception e) {println e;return 1}\r\nfinally {if (ssh_connection){ssh_connection.expectClose()}}"
+        },
+        {
+            "name": "scripttype",
+            "comment": "embed",
+            "value": "embed"
+        },
+        {
+            "name": "windowscmdline",
+            "comment": "",
+            "value": ""
+        },
+        {
+            "name": "windowsscript",
+            "comment": "",
+            "value": ""
+        }
+    ],
+    "version": 1628788449,
+    "tags": "",
+    "auditVersion": 0,
+    "name": "Fortinet_Vdom_List",
+    "id": 244,
+    "group": ""
+}
