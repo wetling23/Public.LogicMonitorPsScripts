@@ -1,8 +1,8 @@
 {
     "scheduleOption": 0,
     "dataType": 0,
-    "description": "",
-    "appliesTo": "system.displayname == \"EQX-CH3-SFFCU-FW-1\" || system.displayname == \"EQX-SE2-CENOV-FW-1\"",
+    "description": "SSH into Fortinet device and query for configured VDOMs.",
+    "appliesTo": "hasCategory(\"Fortigate\") && (ssh.user && ssh.pass)",
     "technology": "",
     "type": "propertyrule",
     "params": [
@@ -37,10 +37,10 @@
             "value": ""
         }
     ],
-    "version": 1628788449,
+    "version": 1628789053,
     "tags": "",
     "auditVersion": 0,
     "name": "Fortinet_Vdom_List",
     "id": 244,
-    "group": ""
+    "group": "Fortinet FortiGate"
 }
