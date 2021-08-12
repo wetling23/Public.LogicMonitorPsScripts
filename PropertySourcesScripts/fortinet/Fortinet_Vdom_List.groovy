@@ -2,9 +2,9 @@
 Notes
     V1.0.0.0 date: 12 August 2021
         - Initial release
-        - Based on input from Stuart Weenig (https://github.com/sweenig/monitoring-recipes/blob/master/DataSources/Groovy/Expect/Groovy_Expect_Example.groovy)
+        - Based on input from Stuart Weenig and Michael Rodrigues (https://communities.logicmonitor.com/topic/7308-trouble-with-fortigate-propertysource-script/)
 Link
-    
+    https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/PropertySourcesScripts/fortinet
 ******************************************************************************/
 
 import com.santaba.agent.groovyapi.expect.Expect
