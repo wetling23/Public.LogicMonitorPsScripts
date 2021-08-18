@@ -3,6 +3,7 @@ Notes
     V1.0.0.0 date: 12 August 2021
         - Initial release
         - Based on input from Stuart Weenig and Michael Rodrigues (https://communities.logicmonitor.com/topic/7308-trouble-with-fortigate-propertysource-script/)
+    V1.0.0.1 date: 18 August 2021
 Link
     https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/PropertySourcesScripts/fortinet
 ******************************************************************************/
@@ -71,8 +72,12 @@ try {
 
     //println "Attempting to parse the list of VDOMs."
     try {
-        if (cmd_output2.contains("Command fail")) {
-            println "No VDOMs in the list variable."
+        if (cmd_output2.contains("Command fail") || cmd_output2.contains("error")) {
+            println "fortinet.vdomlist="
+
+            //println "No VDOMs in the list variable."
+
+            //ssh_connection.expectClose()
 
             return 0
         }
