@@ -25,7 +25,7 @@ Try {
     [pscredential]$credential = New-Object System.Management.Automation.PSCredential ('##ssh.user##', ($pw | ConvertTo-SecureString -AsPlainText -Force))
     $exitCode = 0
     $ip = "##wildvalue##"
-    $vdom = "##wildalias##"
+    $vdom = ("##wildalias##").Split('-')[-1]
     $computerName = "##HOSTNAME##" # Target host for the script to query.
     If (Test-Path -Path "C:\Program Files (x86)\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
         $logDirPath = "C:\Program Files (x86)\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
@@ -42,7 +42,7 @@ Try {
     $message = ("{0}: Defining command." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
     $message | Out-File -FilePath $logFile -Append
 
-    If ($vdom -eq $ip) {
+    If ($vdom -eq 'novdoms') {
         $message = ("{0}: No virtual domains configured." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
         $message | Out-File -FilePath $logFile -Append
 

@@ -105,8 +105,8 @@ Try {
                     $message | Out-File -FilePath $logFile -Append
 
                     Foreach ($ip in $ips) {
-                        "$ip received-routes##$vdom"
-                        "$ip advertised-routes##$vdom"
+                        Write-Host "$ip received-routes##$ip received-routes-$vdom"
+                        Write-Host "$ip advertised-routes##$ip received-routes-$vdom"
                     }
                 } Else {
                     $message = ("{0}: No IP addresses returned." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
@@ -151,8 +151,8 @@ Try {
                 $message | Out-File -FilePath $logFile -Append
 
                 Foreach ($ip in $ips) {
-                    "$ip received-routes##$ip received-routes"
-                    "$ip advertised-routes##$ip advertised-routes"
+                    Write-Host "$ip received-routes##$ip received-routes-novdoms"
+                    Write-Host "$ip advertised-routes##$ip advertised-routes-novdoms"
                 }
             } Else {
                 $message = ("{0}: No IP addresses returned." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
