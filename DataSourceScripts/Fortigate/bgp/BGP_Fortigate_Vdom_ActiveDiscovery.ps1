@@ -1,16 +1,17 @@
 <#
     .DESCRIPTION
-        Uses the custom.vdom property to discover VDOM instances on Fortigate devices.
+        Uses the AUTO.FORTINET.VDOMLIST property (https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/PropertySourcesScripts/fortinet/Fortinet_Vdom_List.groovy) to discover VDOM instances on Fortigate devices.
     .NOTES
         V1.0.0.0 date: 14 July 2020
         V1.0.0.1 date: 23 February 2021
+        V1.0.0.2 date: 18 August 2021
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Fortigate/bgp
 #>
 
 $hostaddr = "##SYSTEM.HOSTNAME##"
 $community = "##SNMP.COMMUNITY##"
-$vdoms = "##CUSTOM.VDOM##"
+$vdoms = "##AUTO.FORTINET.VDOMLIST##"
 $port = "##SNMP.PORT"
 If (("##SNMP.VERSION##") -and ("##SNMP.VERSION##" -notmatch "2c$")) { $snmpVersion = "##SNMP.VERSION##" } Else { $snmpVersion = 'v2c' }
 If (($port) -and ($port -match "^[\d]+$")) { $snmpPort = $port } Else { $snmpPort = '161' } # $port is defined and matches any whole number.
