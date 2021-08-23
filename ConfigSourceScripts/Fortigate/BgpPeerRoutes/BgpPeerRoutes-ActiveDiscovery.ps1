@@ -8,6 +8,7 @@
         V1.0.0.1 date: 26 February 2021
         V1.0.0.2 date: 31 March 2021
         V1.0.0.3 date: 18 August 2021
+        V1.0.0.4 date: 23 August 2021
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/Fortigate/BgpPeerRoutes/
     .EXAMPLE
@@ -39,7 +40,7 @@ Try {
     $command1 = 'get router info bgp sum'
 
     If ($vdoms) {
-        $expandedCommand = "config vdom`r`n`tedit root`r`n`t" # Need double quotes here, so PS will parse the hidden characters correctly.
+        $expandedCommand = "config vdom`r`n`tedit $($vdoms.Split(',')[0])`r`n`t" # Need double quotes here, so PS will parse the hidden characters correctly.
     } Else {
         $expandedCommand = $null
     }
