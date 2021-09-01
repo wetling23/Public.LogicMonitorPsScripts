@@ -9,6 +9,7 @@
         V1.0.0.2 date: 31 March 2021
         V1.0.0.3 date: 18 August 2021
         V1.0.0.4 date: 23 August 2021
+        V1.0.0.5 date: 1 September 20201
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/Fortigate/BgpPeerRoutes/
     .EXAMPLE
@@ -71,7 +72,7 @@ Try {
         $message = ("{0}: Unable to establish the SSH session." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
-        $exitCode = 1
+        Exit 1
     }
 
     If ($vdoms) {
@@ -107,7 +108,7 @@ Try {
 
                     Foreach ($ip in $ips) {
                         Write-Host "$ip received-routes##$ip received-routes-$vdom"
-                        Write-Host "$ip advertised-routes##$ip received-routes-$vdom"
+                        Write-Host "$ip advertised-routes##$ip advertised-routes-$vdom"
                     }
                 } Else {
                     $message = ("{0}: No IP addresses returned." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
