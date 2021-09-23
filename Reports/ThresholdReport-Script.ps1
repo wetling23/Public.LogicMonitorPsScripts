@@ -19,9 +19,9 @@
     .PARAMETER AccountName
         Mandatory parameter. Represents the subdomain of the LogicMonitor customer.
     .PARAMETER GroupName
-        Represents the name of the desired LogicMonitor resource group. When included, the script will filter the list or retrieved devices, to include only those in the specified device group.
+        Represents the name of the desired LogicMonitor resource group. When included, the script will filter the list of retrieved devices, to include only those in the specified device group.
     .PARAMETER GroupId
-        Represents the ID of the desired LogicMonitor resource group. When included, the script will filter the list or retrieved devices, to include only those in the specified device group.
+        Represents the ID of the desired LogicMonitor resource group. When included, the script will filter the list of retrieved devices, to include only those in the specified device group.
     .PARAMETER GroupFilter
         Represents a string matching the API's filter format. This parameter can be used to filter for groups matching certain criteria (e.g. "wmi.user" appears in customProperties).
 
