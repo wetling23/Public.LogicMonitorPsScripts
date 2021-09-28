@@ -4,6 +4,7 @@
     .NOTES
         V1.0.0.0 date: 28 May 2021
         V1.0.0.1 date: 4 June 2021
+        V1.0.0.2 date: 17 September 2021
 
         The app secret requires Application.Read.All, Directory.Read.All, and User.Read.
     .LINK
@@ -23,7 +24,9 @@ $secrets = [System.Collections.Generic.List[PSObject]]::new()
 $i = 0
 $url = 'https://graph.microsoft.com/v1.0/applications'
 
-If (Test-Path -Path "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
+If (Test-Path -Path "${env:ProgramFiles}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
+    $logDirPath = "${env:ProgramFiles}\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
+} ElseIf (Test-Path -Path "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
     $logDirPath = "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
 } Else {
     $logDirPath = "$([System.Environment]::SystemDirectory)" # Directory, into which the log file will be written.
@@ -144,7 +147,7 @@ If ($secrets) {
     $message = ("{0}: Returning secrets: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), ($secrets | Out-String))
     $message | Out-File -FilePath $logFile -Append
 
-    $secrets
+    ($secrets | Out-String)
 }
 
 Exit 0
