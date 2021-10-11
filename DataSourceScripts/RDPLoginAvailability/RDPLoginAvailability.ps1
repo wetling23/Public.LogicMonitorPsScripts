@@ -39,9 +39,9 @@ Function Connect-RDP {
 # Initialize variables.
 $rdpSecStatus = 15
 $computerName = '##system.hostname##'
-$username = '##wmi.user##'
+$username = '##rdp.user##'
 $pass = @'
-##wmi.pass##
+##rdp.pass##
 '@
 $cred = New-Object System.Management.Automation.PSCredential ($username, $($pass | ConvertTo-SecureString -AsPlainText -Force))
 
