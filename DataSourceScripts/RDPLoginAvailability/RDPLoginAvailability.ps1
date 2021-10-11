@@ -7,10 +7,13 @@
             - Initial release
         V1.0.0.1 date: 9 October 2019
         V1.0.0.2 date: 4 October 2020
-        V1.0.0.3 date: 6 October 2002
+        V1.0.0.3 date: 6 October 2020
+        V1.0.0.4 date: 11 October 2021
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/RDPLoginAvailability
 #>
+
+#region Setup
 Function Connect-RDP {
     param (
         [Parameter(Mandatory = $true)]
@@ -32,6 +35,7 @@ Function Connect-RDP {
 }
 
 # Initialize variables.
+$rdpSecStatus = 15
 $computerName = '##system.hostname##'
 $username = '##wmi.user##'
 $pass = @'
@@ -74,7 +78,9 @@ If (-NOT(($computerName -eq $env:ComputerName) -or ($computerName -eq "127.0.0.1
         Write-Host $message; $message | Out-File -FilePath $logFile -Append
     }
 }
+#endregion Setup
 
+#region Local testing
 $message = ("{0}: Checking if the HKCU:\Software\Microsoft\Terminal Server Client path is present." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
 Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
@@ -91,13 +97,13 @@ Else {
     New-Item -Path 'HKCU:\Software\Microsoft\Terminal Server Client\'
 }
 
-If ($rdpSecStatus -and ($rdpSecStatus -eq 0)) {
+If ($rdpSecStatus -eq 0) {
     $message = ("{0}: Found AuthenticationLevelOverride present and with value '0'. No changes to make." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     $startStatus = 'Found:0'
 }
-ElseIf ($rdpSecStatus -and ($rdpSecStatus -ne 0)) {
+ElseIf (($rdpSecStatus -ne 15) -and ($rdpSecStatus -ne 0)) {
     $message = ("{0}: AuthenticationLevelOverride was not found with a value of {1}. Changing the registry value and recording that change, so we can return it later." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $rdpSecStatus)
     Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
@@ -105,7 +111,7 @@ ElseIf ($rdpSecStatus -and ($rdpSecStatus -ne 0)) {
 
     $null = Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Terminal Server Client' -Name AuthenticationLevelOverride -PropertyType DWORD -Value 0
 }
-ElseIf (-NOT($rdpSecStatus)) {
+ElseIf (-NOT($rdpSecStatus) -or $rdpSecStatus -eq 15) {
     $message = ("{0}: AuthenticationLevelOverride not found. Adding the registry value and recording that change, so we can return it later." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
@@ -113,7 +119,9 @@ ElseIf (-NOT($rdpSecStatus)) {
 
     $null = New-ItemProperty -Path 'HKCU:\Software\Microsoft\Terminal Server Client' -Name AuthenticationLevelOverride -PropertyType DWORD -Value 0 -ErrorAction SilentlyContinue
 }
+#endregion Local testing
 
+#region Remote testing
 $message = ("{0}: Attempting to RDP to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
 Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
@@ -171,8 +179,7 @@ Try {
                     }
                     $regKey.Dispose()
                     $LMRegKey.Dispose()
-                }
-                Else {
+                } Else {
                     $remoteMessage += ("{0}: Verified that we are not running as an admin.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
                 }
 
@@ -185,7 +192,7 @@ Try {
 
                     Foreach ($line in $result[1..$result.count]) {
                         #avoiding line 0, don't want the headers
-                        $tmp = $line.split(" ") | ? { $_.length -gt 0 }
+                        $tmp = $line.split(" ") | Where-Object { $_.length -gt 0 }
                         If (($line[19] -ne " ")) {
 
                             #username starts at char 19
@@ -199,8 +206,7 @@ Try {
                                     "State"        = $tmp[3]
                                     "Type"         = $tmp[4]
                                 }
-                            }
-                            Else {
+                            } Else {
                                 $return += New-Object PSObject -Property @{
                                     "ComputerName" = $ComputerName
                                     "SessionName"  = $null
@@ -214,8 +220,7 @@ Try {
                     }
 
                     $result
-                }
-                Else {
+                } Else {
                     $remoteMessage += ("{0}: Unknown error, cannot retrieve logged on users.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
                 }
             }
@@ -223,12 +228,10 @@ Try {
                 If ($return) {
                     If ($Quiet) {
                         $true
-                    }
-                    Else {
+                    } Else {
                         $return
                     }
-                }
-                Else {
+                } Else {
                     If (!($Quiet)) {
                         $remoteMessage += "{0}: No active sessions.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")
                     }
@@ -238,34 +241,34 @@ Try {
         }
         Function Close-ActiveSessions {
             <#
-            .SYNOPSIS
-                Closes the specified open sessions of a remote or local workstations
-            .DESCRIPTION
-                Close-ActiveSessions uses the command line tool rwinsta to close the specified open sessions on a computer whether they are RDP or logged on locally.
-            .PARAMETER $ComputerName
-                The name of the computer that you would like to close the active sessions on.
-            .PARAMETER ID
-                The ID number of the session to be closed.
-            .EXAMPLE
-                Close-ActiveSessions -ComputerName PC1 -ID 1
+        .SYNOPSIS
+            Closes the specified open sessions of a remote or local workstations
+        .DESCRIPTION
+            Close-ActiveSessions uses the command line tool rwinsta to close the specified open sessions on a computer whether they are RDP or logged on locally.
+        .PARAMETER $ComputerName
+            The name of the computer that you would like to close the active sessions on.
+        .PARAMETER ID
+            The ID number of the session to be closed.
+        .EXAMPLE
+            Close-ActiveSessions -ComputerName PC1 -ID 1
 
-                Closes the session with ID of 1 on PC1
-            .EXAMPLE
-                Get-ActiveSessions DC01 | ?{$_.State -ne "Active"} | Close-ActiveSessions
+            Closes the session with ID of 1 on PC1
+        .EXAMPLE
+            Get-ActiveSessions DC01 | ?{$_.State -ne "Active"} | Close-ActiveSessions
 
-                Closes all sessions that are not active on DC01
-            .INPUTS
-                [string]$ComputerName
-                [int]ID
-            .OUTPUTS
-                Progress of the rwinsta command.
-            .NOTES
-                Author: Anthony Howell
-            .LINK
-                rwinsta
-                http://stackoverflow.com/questions/22155943/qwinsta-error-5-access-is-denied
-                https://theposhwolf.com
-        #>
+            Closes all sessions that are not active on DC01
+        .INPUTS
+            [string]$ComputerName
+            [int]ID
+        .OUTPUTS
+            Progress of the rwinsta command.
+        .NOTES
+            Author: Anthony Howell
+        .LINK
+            rwinsta
+            http://stackoverflow.com/questions/22155943/qwinsta-error-5-access-is-denied
+            https://theposhwolf.com
+    #>
             Param(
                 [Parameter(
                     Mandatory = $true,
@@ -324,36 +327,36 @@ Try {
             If ($sessions.UserName) {
                 $remoteMessage += ("{0}: Found {1} sessions. Checking if {2} is logged in.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $sessions.Count, $UserName)
 
-                $var = Foreach ($session in $sessions) {
+                Foreach ($session in $sessions) {
                     If ($session.UserName -eq $UserName.Split('\')[-1]) {
                         $remoteMessage += ("{0}: Found {1} logged in. The session ID is {2}. Calling Close-ActiveSessions.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $UserName, $session.Id)
 
                         $closeResponse = Close-ActiveSessions -ComputerName $ComputerName -Id $session.Id
 
                         If ($closeResponse -eq "Error") {
-                            2, $remoteMessage
+                            $status = 2
+                        } Else {
+                            $status = 0
                         }
-                        Else {
-                            0, $remoteMessage
-                        }
+
+                        Return @($status, $remoteMessage)
                     }
                 }
+            } ElseIf ($sessions -eq "Error") {
+                $status = 1
+            }
 
-                Return $var
-            }
-            ElseIf ($sessions -eq "Error") {
-                1, $remoteMessage
-            }
-            Else {
+            If (-NOT($status) -or -NOT($sessions.UserName)) {
                 $remoteMessage += ("{0}: No sessions matching {1} found. Disconnecting from {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $UserName, $ComputerName)
 
-                3, $remoteMessage
+                $status = 3
             }
-        }
-        Catch {
+
+            Return @($status, $remoteMessage)
+        } Catch {
             $remoteMessage += ("{0}: Unexpected error in the Invoke-Command block. The error occurred at line {1}, the command was `"{2}`", and the specific error is: {3}" -f [datetime]::Now, $_.InvocationInfo.ScriptLineNumber, $_.InvocationInfo.MyCommand.Name, $_.Exception.Message)
 
-            4, $remoteMessage
+            Return @(4, $remoteMessage)
         }
 
     } -ArgumentList $computerName, $username -ErrorAction Stop
@@ -362,6 +365,7 @@ Catch {
     $message = ("{0}: Unexpected error connecting to {1} with Invoke-Command. Error: {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName, $_.Exception.Message)
     Write-Host $message; $message | Out-File -FilePath $logFile -Append
 }
+#endregion Remote testing
 
 If ($response -is [system.array]) {
     # Adding response to the DataSource log.
