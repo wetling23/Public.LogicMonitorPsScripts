@@ -31,7 +31,9 @@ Function Connect-RDP {
         $null = cmdkey.exe /generic:TERMSRV/$ComputerName /user:$User /pass:$Password
     }
 
-    mstsc.exe /v $ComputerName /f
+    $app = Start-Process -FilePath mstsc.exe -ArgumentList "/v $ComputerName", "/f" -PassThru
+
+    Return $app
 }
 
 # Initialize variables.
@@ -125,7 +127,7 @@ ElseIf (-NOT($rdpSecStatus) -or $rdpSecStatus -eq 15) {
 $message = ("{0}: Attempting to RDP to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
 Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
-Connect-RDP -ComputerName $computerName -Credential $cred
+$app = Connect-RDP -ComputerName $computerName -Credential $cred
 
 $message = ("{0}: Waiting 30 seconds, for the login to complete." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
 Write-Host $message; $message | Out-File -FilePath $logFile -Append
@@ -155,15 +157,18 @@ Try {
                 [switch]$Quiet
             )
             Begin {
-                $return = @()
-                $remoteMessage += ("{0}: Beginning {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.$MyInvocation.MyCommand)
+                $remoteMessage = @"
+{0}: Beginning {1}.`r`n
+"@ -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand
             }
             Process {
+                $sessions = [System.Collections.Generic.List[PSObject]]::New()
                 If (-NOT(Test-Connection $ComputerName -Quiet -Count 1)) {
                     $remoteMessage += ("{0}: Unable to contact $ComputerName. Please verify its network connectivity and try again.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
 
-                    "Error"
+                    Return @("Error", $remoteMessage)
                 }
+
                 If ([bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")) {
                     #check if user is admin, otherwise no registry work can be done
                     $remoteMessage += ("{0}: Verified that we are running as an admin.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
@@ -171,7 +176,7 @@ Try {
                     #the following registry key is necessary to avoid the error 5 access is denied error
                     $LMtype = [Microsoft.Win32.RegistryHive]::LocalMachine
                     $LMkey = "SYSTEM\CurrentControlSet\Control\Terminal Server"
-                    $LMRegKey = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey($LMtype, $ComputerName)
+                    $LMRegKey = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey($LMtype, $Name)
                     $regKey = $LMRegKey.OpenSubKey($LMkey, $true)
                     If ($regKey.GetValue("AllowRemoteRPC") -ne 1) {
                         $regKey.SetValue("AllowRemoteRPC", 1)
@@ -181,6 +186,8 @@ Try {
                     $LMRegKey.Dispose()
                 } Else {
                     $remoteMessage += ("{0}: Verified that we are not running as an admin.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+
+                    Return ("Error", $remoteMessage)
                 }
 
                 $remoteMessage += ("{0}: Running qwinsta against {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName)
@@ -188,87 +195,91 @@ Try {
                 $result = qwinsta /server:$ComputerName
 
                 If ($result) {
-                    $remoteMessage += ("{0}: Found sessions, parsing the result.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-
-                    Foreach ($line in $result[1..$result.count]) {
-                        #avoiding line 0, don't want the headers
+                    ForEach ($line in $result[1..$result.count]) {
+                        #avoiding the line 0, don't want the headers
                         $tmp = $line.split(" ") | Where-Object { $_.length -gt 0 }
                         If (($line[19] -ne " ")) {
-
                             #username starts at char 19
                             If ($line[48] -eq "A") {
                                 #means the session is active ("A" for active)
-                                $return += New-Object PSObject -Property @{
-                                    "ComputerName" = $ComputerName
+                                $obj = New-Object PSObject -Property @{
+                                    "ComputerName" = $Name
                                     "SessionName"  = $tmp[0]
                                     "UserName"     = $tmp[1]
                                     "ID"           = $tmp[2]
                                     "State"        = $tmp[3]
                                     "Type"         = $tmp[4]
                                 }
+
+                                $sessions.Add($obj)
                             } Else {
-                                $return += New-Object PSObject -Property @{
-                                    "ComputerName" = $ComputerName
+                                $obj = New-Object PSObject -Property @{
+                                    "ComputerName" = $Name
                                     "SessionName"  = $null
                                     "UserName"     = $tmp[0]
                                     "ID"           = $tmp[1]
                                     "State"        = $tmp[2]
                                     "Type"         = $null
                                 }
+
+                                $sessions.Add($obj)
                             }
                         }
                     }
-
-                    $result
                 } Else {
                     $remoteMessage += ("{0}: Unknown error, cannot retrieve logged on users.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+
+                    Return @("Error", $remoteMessage)
                 }
             }
             End {
-                If ($return) {
+                If ($sessions) {
                     If ($Quiet) {
-                        $true
+                        Return @($true, $remoteMessage)
                     } Else {
-                        $return
+                        Return @($sessions, $remoteMessage)
                     }
                 } Else {
                     If (!($Quiet)) {
                         $remoteMessage += "{0}: No active sessions.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")
+
+                        Return @("", $remoteMessage)
+                    } Else {
+                        @($false, $remoteMessage)
                     }
-                    $false
                 }
             }
         }
         Function Close-ActiveSessions {
             <#
-        .SYNOPSIS
-            Closes the specified open sessions of a remote or local workstations
-        .DESCRIPTION
-            Close-ActiveSessions uses the command line tool rwinsta to close the specified open sessions on a computer whether they are RDP or logged on locally.
-        .PARAMETER $ComputerName
-            The name of the computer that you would like to close the active sessions on.
-        .PARAMETER ID
-            The ID number of the session to be closed.
-        .EXAMPLE
-            Close-ActiveSessions -ComputerName PC1 -ID 1
+                .SYNOPSIS
+                    Closes the specified open sessions of a remote or local workstations
+                .DESCRIPTION
+                    Close-ActiveSessions uses the command line tool rwinsta to close the specified open sessions on a computer whether they are RDP or logged on locally.
+                .PARAMETER $ComputerName
+                    The name of the computer that you would like to close the active sessions on.
+                .PARAMETER ID
+                    The ID number of the session to be closed.
+                .EXAMPLE
+                    Close-ActiveSessions -ComputerName PC1 -ID 1
 
-            Closes the session with ID of 1 on PC1
-        .EXAMPLE
-            Get-ActiveSessions DC01 | ?{$_.State -ne "Active"} | Close-ActiveSessions
+                    Closes the session with ID of 1 on PC1
+                .EXAMPLE
+                    Get-ActiveSessions DC01 | ?{$_.State -ne "Active"} | Close-ActiveSessions
 
-            Closes all sessions that are not active on DC01
-        .INPUTS
-            [string]$ComputerName
-            [int]ID
-        .OUTPUTS
-            Progress of the rwinsta command.
-        .NOTES
-            Author: Anthony Howell
-        .LINK
-            rwinsta
-            http://stackoverflow.com/questions/22155943/qwinsta-error-5-access-is-denied
-            https://theposhwolf.com
-    #>
+                    Closes all sessions that are not active on DC01
+                .INPUTS
+                    [string]$ComputerName
+                    [int]ID
+                .OUTPUTS
+                    Progress of the rwinsta command.
+                .NOTES
+                    Author: Anthony Howell
+                .LINK
+                    rwinsta
+                    http://stackoverflow.com/questions/22155943/qwinsta-error-5-access-is-denied
+                    https://theposhwolf.com
+            #>
             Param(
                 [Parameter(
                     Mandatory = $true,
@@ -287,13 +298,15 @@ Try {
                 [int]$ID
             )
             Begin {
-                $remoteMessage += ("{0}: Beginning {1}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.$MyInvocation.MyCommand)
+                $remoteMessage = @"
+{0}: Beginning {1}.`r`n
+"@ -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand
             }
             Process {
                 If (-NOT(Test-Connection $ComputerName -Quiet -Count 1)) {
                     $remoteMessage += ("{0}: Unable to contact {1}. Please verify its network connectivity and try again.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName)
 
-                    "Error"
+                    Return @("Error", $remoteMessage)
                 }
                 If ([bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")) {
                     #check if user is admin, otherwise no registry work can be done
@@ -314,7 +327,7 @@ Try {
 
                 $remoteMessage += rwinsta.exe /server:$ComputerName $ID /V
             }
-            End { }
+            End { Return @("", $remoteMessage) }
         }
 
         $remoteMessage = @"
@@ -322,13 +335,16 @@ Try {
 "@ -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName, $UserName
 
         Try {
-            $sessions = Get-ActiveSessions -ComputerName $ComputerName
+            $funcResponse = Get-ActiveSessions -ComputerName $ComputerName
+            $activeSessions = $funcResponse[0] | Where-Object { $_.State -eq 'Active' }; $remoteMessage += $funcResponse[1] | Out-String
 
-            If ($sessions.UserName) {
-                $remoteMessage += ("{0}: Found {1} sessions. Checking if {2} is logged in.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $sessions.Count, $UserName)
+            If ($activeSessions.UserName) {
+                $remoteMessage += ("{0}: Found {1} sessions:`r`n{2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $activeSessions.ID.Count, ($activeSessions.UserName | Out-String))
 
-                Foreach ($session in $sessions) {
-                    If ($session.UserName -eq $UserName.Split('\')[-1]) {
+                Foreach ($session in $activeSessions) {
+                    $remoteMessage += ("{0}: Checking if {1} matches {2}.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $session.UserName, $UserName)
+
+                    If (($session.UserName -eq $UserName.Split('\')[-1]) -or ($UserName -match ".*$($session.UserName).*")) {
                         $remoteMessage += ("{0}: Found {1} logged in. The session ID is {2}. Calling Close-ActiveSessions.`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $UserName, $session.Id)
 
                         $closeResponse = Close-ActiveSessions -ComputerName $ComputerName -Id $session.Id
@@ -340,16 +356,24 @@ Try {
                         }
 
                         Return @($status, $remoteMessage)
+                    } Else {
+                        $remoteMessage += ("{0}: {1} does not match {2}`r`n" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $UserName, $($session.UserName))
                     }
                 }
-            } ElseIf ($sessions -eq "Error") {
+            } ElseIf ($activeSessions -eq "Error") {
                 $status = 1
             }
 
-            If (-NOT($status) -or -NOT($sessions.UserName)) {
-                $remoteMessage += ("{0}: No sessions matching {1} found. Disconnecting from {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $UserName, $ComputerName)
+            If (-NOT($status)) {
+                $remoteMessage += ("{0}: No sessions matching {1} found." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $UserName)
 
                 $status = 3
+            }
+
+            If (-NOT($activeSessions.UserName)) {
+                $remoteMessage += ("{0}: No sessions found. Disconnecting from {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ComputerName)
+
+                $status = 5
             }
 
             Return @($status, $remoteMessage)
@@ -366,6 +390,11 @@ Catch {
     Write-Host $message; $message | Out-File -FilePath $logFile -Append
 }
 #endregion Remote testing
+
+$message = ("{0}: Ensuring mstsc is closed." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+Stop-Process -Id $app.id
 
 If ($response -is [system.array]) {
     # Adding response to the DataSource log.
@@ -403,17 +432,17 @@ If ($response -is [system.array]) {
         }
     }
 
-    $message = ("{0}: The value of `$response is {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), ($response | Out-String))
+    $message = ("{0}: The returned status is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $response[0])
     Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     If ($response[0] -eq 0) {
-        $message = ("{0}: Found login to {1} successful." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
+        $message = ("{0}: Found login to {1}, for {2} successful." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName, $username)
         Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
         Exit 0
     }
     Else {
-        $message = ("{0}: Login to {1} was unsuccessful." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
+        $message = ("{0}: RDP Login to {1} was unsuccessful." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
         Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
         Exit 1
