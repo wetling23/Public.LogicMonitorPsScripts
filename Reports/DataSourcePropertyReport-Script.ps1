@@ -137,7 +137,7 @@ Switch ($PsCmdlet.ParameterSetName) {
         $fileName = "dataSourceReport-$(($filter.Split('=') -split '~|:')[1])Filter.csv"
         $filterParam = @{ Filter = $Filter }
     }
-    "AllDevices" {
+    "AllDataSources" {
         $fileName = "dataSourceReport-AllDataSources.csv"
     }
 }
@@ -146,7 +146,7 @@ Switch ($PsCmdlet.ParameterSetName) {
 $message = ("{0}: Getting DataSource(s)." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
 If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
-If ($PsCmdlet.ParameterSetName -eq "AllDevices") {
+If ($PsCmdlet.ParameterSetName -eq "AllDataSources") {
     $dataSources = Get-LogicMonitorDataSource @commandParams
 }
 
