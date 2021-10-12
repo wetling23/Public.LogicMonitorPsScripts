@@ -5,6 +5,7 @@
         Author: Mike Hashemi
         V1.0.0.0 date: 23 September 2021
             - Initial release.
+        V1.0.0.1 date: 12 October 2021
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Reports/DataSourcePropertyReport-Script.ps1
     .PARAMETER AccessId
@@ -126,12 +127,15 @@ $commandParams = @{
 Switch ($PsCmdlet.ParameterSetName) {
     "NameFilter" {
         $fileName = "dataSourceReport-$DisplayName.csv"
+        $filterParam = @{ DisplayName = $DisplayName }
     }
     "IdFilter" {
         $fileName = "dataSourceReport-$Id.csv"
+        $filterParam = @{ Id = $Id }
     }
     "StringFilter" {
         $fileName = "dataSourceReport-$(($filter.Split('=') -split '~|:')[1])Filter.csv"
+        $filterParam = @{ Filter = $Filter }
     }
     "AllDevices" {
         $fileName = "dataSourceReport-AllDataSources.csv"
@@ -142,19 +146,8 @@ Switch ($PsCmdlet.ParameterSetName) {
 $message = ("{0}: Getting DataSource(s)." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
 If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
-Switch ($PsCmdlet.ParameterSetName) {
-    "NameFilter" {
-        $filterParam = @{ DisplayName = $DisplayName}
-    }
-    "IdFilter" {
-        $filterParam = @{ Id = $Id }
-    }
-    "StringFilter" {
-        $filterParam = @{ Filter = $Filter }
-    }
-    "AllDataSources" {
-        $dataSources = Get-LogicMonitorDataSource @commandParams
-    }
+If ($PsCmdlet.ParameterSetName -eq "AllDevices") {
+    $dataSources = Get-LogicMonitorDataSource @commandParams
 }
 
 If (-NOT($dataSources.id)) {
@@ -170,13 +163,13 @@ Else {
     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 }
 
-Foreach ($ds in $allDataSource) {
+Foreach ($ds in $dataSources) {
     $progressCounter++
 
     $message = ("{0}: ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
-    $message = ("{0}: Working on {1}. This is DataSource {2} of {3}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ds.name, $progressCounter, $allDataSource.id.Count)
+    $message = ("{0}: Working on {1}. This is DataSource {2} of {3}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $ds.name, $progressCounter, $dataSources.id.Count)
     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     Foreach ($dp in $ds.datapoints) {
