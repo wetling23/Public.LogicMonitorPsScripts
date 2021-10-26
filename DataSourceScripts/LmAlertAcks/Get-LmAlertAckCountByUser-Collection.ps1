@@ -1,12 +1,12 @@
 <#
     .DESCRIPTION
-        
+        Get acked alerts via the LogicMonitor API, looking back a configured number of minutes (defaults to 60) and returns a count of acked alerts, by user.
     .NOTES
         Author: Mike Hashemi
         V1.0.0.0 date: 26 October 2021
             - Initial release.
     .LINK
-        
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/LmAlertAcks
 #>
 #Requires -Version 1.0.1.83 -Module LogicMonitor
 [CmdletBinding()]
