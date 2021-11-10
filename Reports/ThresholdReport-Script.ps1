@@ -62,6 +62,10 @@
         PS C:\> .\ThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -DeviceFilter 'filter=systemProperties.value:"Microsoft Windows Server 2012 R2 Standard"'
 
         In this example, the script gets all devices from LogicMonitor, with "Microsoft Windows Server 2012 R2 Standard" in the system propreties, and generates a threshold report for them. Limited logging is written to the console host only. Output is sent only to the host.
+    .EXAMPLE
+        PS C:\> .\ThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -DeviceFilter 'filter=id:10'
+
+        In this example, the script gets device with ID 10 from LogicMonitor, and generates a threshold report for it. Limited logging is written to the console host only. Output is sent only to the host.
 #>
 [CmdletBinding(DefaultParameterSetName = 'AllDevices')]
 Param (
