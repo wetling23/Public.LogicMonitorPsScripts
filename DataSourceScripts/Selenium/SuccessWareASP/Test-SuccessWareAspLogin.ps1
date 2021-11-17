@@ -7,6 +7,7 @@
         V1.0.0.1 date: 29 October 2020
         V1.0.0.2 date: 22 January 2021
         V1.0.0.3 date: 13 September 2021
+        V1.0.0.4 date: 17 November 2021
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Selenium/SuccessWareASP
 #>
@@ -39,96 +40,116 @@ Function Test-ChromeDriverVersion {
         [System.IO.FileInfo]$ChromeDriverDir
     )
 
-    $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-    Write-Host $message; $message | Out-File -FilePath $logFile -Append
-
-    $chromeDriverFileLocation = $(Join-Path $ChromeDriverDir "chromedriver.exe")
-    $chromeVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files (x86)\Google\Chrome\Application\chrome.exe").FileVersion
-    $chromeMajorVersion = $chromeVersion.split(".")[0]
-
-    If (-NOT($chromeMajorVersion -gt 0)) {
-        $message = ("{0}: Google Chrome not installed. {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-        Write-Error $message; $message | Out-File -FilePath $logFile -Append
-
-        Return 1
-    }
-
-    If (Test-Path -Path $chromeDriverFileLocation -ErrorAction SilentlyContinue) {
-        $message = ("{0}: Getting chromedriver.exe version." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+    Try {
+        $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
         Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
-        $chromeDriverFileVersion = (& $chromeDriverFileLocation --version)
-        $chromeDriverFileVersionHasMatch = $chromeDriverFileVersion -match "ChromeDriver (\d+\.\d+\.\d+(\.\d+)?)"
-        $chromeDriverCurrentVersion = $matches[1]
+        $date = ([datetime]::Now).ToString("yyyy-MM-dd`THH-mm-ss")
+        $chromeDriverFileLocation = $(Join-Path $ChromeDriverDir "chromedriver.exe")
+        $chromeVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files (x86)\Google\Chrome\Application\chrome.exe").FileVersion
+        $chromeMajorVersion = $chromeVersion.split(".")[0]
 
-        If (-NOT $chromeDriverFileVersionHasMatch) {
-            $message = ("{0}: No chromedriver.exe version identified. To prevent errors, {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-            Write-Error $message; $message | Out-File -FilePath $logFile -Append
-
-            Return 1
-        }
-    }
-    Else {
-        $message = ("{0}: Chromedriver.exe not found. {1} will attempt to download it." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-        Write-Host $message; $message | Out-File -FilePath $logFile -Append
-
-        $chromeDriverCurrentVersion = '' # Need this here, to compare versions later.
-    }
-
-    $message = ("{0}: Determining latest Chrome/chromedriver version information." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    Write-Host $message; $message | Out-File -FilePath $logFile -Append
-
-    $chromeDriverExpectedVersion = $chromeVersion.split(".")[0..2] -join "."
-    $chromeDriverVersionUrl = "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_" + $chromeDriverExpectedVersion
-
-    $chromeDriverLatestVersion = Invoke-RestMethod -Uri $chromeDriverVersionUrl
-
-    $needUpdateChromeDriver = $chromeDriverCurrentVersion -ne $chromeDriverLatestVersion
-
-    If ($needUpdateChromeDriver) {
-        $message = ("{0}: Chromedriver.exe does not match the version of Google Chrome, attempting to download the correct version." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-        Write-Host $message; $message | Out-File -FilePath $logFile -Append
-
-        $chromeDriverZipLink = "https://chromedriver.storage.googleapis.com/$chromeDriverLatestVersion/chromedriver_win32.zip"
-
-        $message = ("{0}: Attempting to download from {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $chromeDriverZipLink)
-        Write-Host $message; $message | Out-File -FilePath $logFile -Append
-
-        Try {
-            Invoke-WebRequest -Uri $chromeDriverZipLink -OutFile $(Join-Path $ChromeDriverDir "chromedriver_win32.zip") -ErrorAction Stop
-        }
-        Catch {
-            $message = ("{0}: Unexpected error downloading the file. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+        If (-NOT($chromeMajorVersion -gt 0)) {
+            $message = ("{0}: Google Chrome not installed. {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
             Write-Error $message; $message | Out-File -FilePath $logFile -Append
 
             Return 1
         }
 
-        $message = ("{0}: Attempting to extract chromedriver.exe." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+        If (Test-Path -Path $chromeDriverFileLocation -ErrorAction SilentlyContinue) {
+            $message = ("{0}: Getting chromedriver.exe version." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+            $chromeDriverFileVersion = (& $chromeDriverFileLocation --version)
+            $chromeDriverFileVersionHasMatch = $chromeDriverFileVersion -match "ChromeDriver (\d+\.\d+\.\d+(\.\d+)?)"
+            $chromeDriverCurrentVersion = $matches[1]
+
+            If (-NOT $chromeDriverFileVersionHasMatch) {
+                $message = ("{0}: No chromedriver.exe version identified. To prevent errors, {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
+                Write-Error $message; $message | Out-File -FilePath $logFile -Append
+
+                Return 1
+            }
+        } Else {
+            $message = ("{0}: Chromedriver.exe not found. {1} will attempt to download it." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+            $chromeDriverCurrentVersion = '' # Need this here, to compare versions later.
+        }
+
+        $message = ("{0}: Determining latest Chrome/chromedriver version information." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
-        Try {
-            Expand-Archive -Path $(Join-Path $ChromeDriverDir "chromedriver_win32.zip") -DestinationPath $ChromeDriverDir -Force -ErrorAction Stop
-            Remove-Item -Path $(Join-Path $ChromeDriverDir "chromedriver_win32.zip") -Force -ErrorAction Continue
+        $chromeDriverExpectedVersion = $chromeVersion.split(".")[0..2] -join "."
+        $chromeDriverVersionUrl = "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_" + $chromeDriverExpectedVersion
 
-            $message = ("{0}: Chromedriver.exe updated to version {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), (& $chromeDriverFileLocation --version))
+        $chromeDriverLatestVersion = Invoke-RestMethod -Uri $chromeDriverVersionUrl
+
+        $needUpdateChromeDriver = $chromeDriverCurrentVersion -ne $chromeDriverLatestVersion
+
+        If ($needUpdateChromeDriver) {
+            $message = ("{0}: Chromedriver.exe does not match the version of Google Chrome, attempting to download the correct version." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+            $chromeDriverZipLink = "https://chromedriver.storage.googleapis.com/$chromeDriverLatestVersion/chromedriver_win32.zip"
+
+            $message = ("{0}: Attempting to download from {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $chromeDriverZipLink)
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+            Try {
+                If (Get-Process -Name chromedriver -ErrorAction SilentlyContinue) {
+                    $message = ("{0}: Attempting to stop chromedriver.exe before extracting the replacement." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+                    Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+                    Try {
+                        Get-Process -Name chromedriver | Stop-Process -Force
+                    } Catch {
+                        $message = ("{0}: Unexpected error stopping chromedriver. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+                        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+                        Return 1
+                    }
+                }
+
+                (New-Object System.Net.WebClient).DownloadFile($chromeDriverZipLink, "$($ChromeDriverDir.FullName)\chromedriver_win32_$date.zip")
+            } Catch {
+                $message = ("{0}: Unexpected error downloading the file. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+                Write-Error $message; $message | Out-File -FilePath $logFile -Append
+
+                Return 1
+            }
+
+            $message = ("{0}: Attempting to extract chromedriver.exe." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+            Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+            Try { ##need to test this section
+                Expand-Archive -Path "$($ChromeDriverDir.FullName)\chromedriver_win32_$date.zip" -DestinationPath $ChromeDriverDir.FullName -Force -ErrorAction Stop
+                Remove-Item -Path "$($ChromeDriverDir.FullName)\chromedriver_win32_$date.zip" -Force -ErrorAction Continue
+
+                $message = ("{0}: Chromedriver.exe updated to version {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), (& $chromeDriverFileLocation --version))
+                Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+                Return 0
+            } Catch {
+                $message = ("{0}: Unexpected error extracting chromedriver.exe. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+                Write-Error $message; $message | Out-File -FilePath $logFile -Append
+
+                Return 1
+            }
+
+        } Else {
+            $message = ("{0}: Chromedriver.exe is up-to-date." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
             Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
             Return 0
         }
-        Catch {
-            $message = ("{0}: Unexpected error extracting chromedriver.exe. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
-            Write-Error $message; $message | Out-File -FilePath $logFile -Append
-
-            Return 1
-        }
-
     }
-    Else {
-        $message = ("{0}: Chromedriver.exe is up-to-date." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+    Catch {
+        $message = ("{0}: Unexpected error in {1}. The error occurred at line {2}, the command was `"{3}`", and the specific error is: {4}" -f `
+            ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, $_.InvocationInfo.ScriptLineNumber, $_.InvocationInfo.MyCommand.Name, $_.Exception.Message)
         Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
-        Return 0
+        Return 1
     }
 }
 
@@ -149,7 +170,7 @@ $result = Test-ChromeDriverVersion -ChromeDriverDir $seleniumPath
 
 If ($result -eq 1) {
     $message = ("{0}: Unable to validate chromedriver.exe version. To prevent errors, {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-    Write-Host $message; $message | Out-File -FilePath $logFile
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
     Exit 1
 }
