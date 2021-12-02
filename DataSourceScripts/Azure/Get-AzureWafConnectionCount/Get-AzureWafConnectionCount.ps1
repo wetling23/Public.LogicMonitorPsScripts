@@ -5,7 +5,7 @@
         V1.0.0.0 date: 1 December 2021
             - Initial release.
     .LINK
-        
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Azure/Get-AzureWafConnectionCount
 #>
 [CmdletBinding()]
 param ()
