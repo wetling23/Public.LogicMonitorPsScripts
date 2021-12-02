@@ -20,7 +20,7 @@ Try {
     $accessId = '##lmaccess.id##'
     $accessKey = '##lmaccess.key##' | ConvertTo-SecureString -AsPlainText -Force
     $accountName = '##lmaccount##'
-    $collectionInterval = '##custom.ackalertinterval##' # Value, in minutes, that the DataSource should look back (from the current time).
+    [int]$collectionInterval = '##custom.ackalertinterval##' # Value, in minutes, that the DataSource should look back (from the current time).
 
     If (Test-Path -Path "${env:ProgramFiles}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
         $logDirPath = "${env:ProgramFiles}\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
@@ -34,7 +34,7 @@ Try {
     $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
     $message | Out-File -FilePath $logFile
 
-    If (($collectionInterval -is [int]) -and ($collectionInterval -gt 0)) {
+    If ($collectionInterval -gt 0) {
         $message = ("{0}: Setting the alert start time to {1} minutes ago." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $collectionInterval)
         $message | Out-File -FilePath $logFile -Append
 
