@@ -1,6 +1,6 @@
 <#
     .DESCRIPTION
-        Get acked alerts via the LogicMonitor API, looking back a configured number of minutes (defaults to 60) and returns a count of acked alerts, by user.
+        Get acked alerts via the LogicMonitor API, looking back a user-configured number of minutes, and returns a list of users who have acked them.
     .NOTES
         Author: Mike Hashemi
         V1.0.0.0 date: 26 October 2021
