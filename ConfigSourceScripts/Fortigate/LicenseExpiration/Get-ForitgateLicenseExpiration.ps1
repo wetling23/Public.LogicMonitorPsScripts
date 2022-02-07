@@ -5,8 +5,7 @@
         Author: Mike Hashemi
         V2022.2.7.0
     .LINK
-        
-    
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/Fortigate/LicenseExpiration
 #>
 [CmdletBinding()]
 param()
