@@ -10,6 +10,7 @@
         V1.0.0.3 date: 28 October 2020
         V1.0.0.4 date: 13 May 2021
         V1.0.0.5 date: 30 July 2021
+        V2022.03.25.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Reports/ThresholdReport-Script.ps1
     .PARAMETER AccessId
@@ -280,7 +281,7 @@ Foreach ($device in $devices) {
     $headers = @{
         "Authorization" = "LMv1 $AccessId`:$signature`:$epoch"
         "Content-Type"  = "application/json"
-        "X-Version"     = 2
+        "X-Version"     = 3
     }
 
     $instances = Invoke-RestMethod -Uri $url -Method $httpVerb -Header $headers -ErrorAction Stop
@@ -312,7 +313,7 @@ Foreach ($device in $devices) {
         $headers = @{
             "Authorization" = "LMv1 $AccessId`:$signature`:$epoch"
             "Content-Type"  = "application/json"
-            "X-Version"     = 2
+            "X-Version"     = 3
         }
 
         $message = ("{0}: Getting DataSources." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
@@ -338,7 +339,7 @@ Foreach ($device in $devices) {
         $headers = @{
             "Authorization" = "LMv1 $AccessId`:$signature`:$epoch"
             "Content-Type"  = "application/json"
-            "X-Version"     = 2
+            "X-Version"     = 3
         }
 
         $message = ("{0}: Getting datapoints." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
