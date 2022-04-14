@@ -11,6 +11,7 @@
         V1.0.0.4 date: 13 May 2021
         V1.0.0.5 date: 30 July 2021
         V2022.03.25.0
+        V2022.04.14.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Reports/ThresholdReport-Script.ps1
     .PARAMETER AccessId
@@ -187,14 +188,14 @@ Switch ($PsCmdlet.ParameterSetName) {
         }
 
         If ($Recursive) {
-            $message = ("{0}: Attempting to get all sub-groups of {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $GroupId)
+            $message = ("{0}: Attempting to get all sub-groups of group {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $GroupId)
             If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
             Do {
                 $groupProps = (Get-LogicMonitorDeviceGroup -Id $GroupId @commandParams @loggingParams)
                 $searchedGroups.Add($GroupId)
 
-                If ($groupProps.subGroups) {
+                If ($groupProps.subGroups.id.Count -gt 0) {
                     Foreach ($group in $groupProps.subGroups.id) {
                         $groupsToCheckForSubGroups.Add($group)
                     }
