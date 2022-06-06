@@ -6,6 +6,7 @@
         V2022.2.7.0
         V2022.02.22.0
         V2022.06.06.0
+        V2022.06.06.1
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/Fortigate/LicenseExpiration
 #>
@@ -75,7 +76,7 @@ If ($discoveredLicenses) {
     Foreach ($license in $licenseObjects) {
         $i++
 
-        $message = ("{0}: Parsing `"{1}`". This is license {2} of {3}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $license.Name, $i, $discoveredLicenses.Name.Count)
+        $message = ("{0}: Parsing `"{1}`". This is license {2} of {3}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $license.Name, $i, $licenseObjects.Name.Count)
         $message | Out-File -FilePath $logFile -Append
 
         $license | Add-Member -MemberType NoteProperty -Name DaysUntilExpiration -Value (New-TimeSpan -Start $today -End $license.Expiration).Days -Force
