@@ -5,13 +5,18 @@
         Author: Mike Hashemi
         V2022.2.7.0
         V2022.02.22.0
+        V2022.06.06.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/Fortigate/LicenseExpiration
 #>
 [CmdletBinding()]
 param()
 
-#region Setup
+#region Setup# Initialize variables
+$autoLicenseList = '##auto.installedlicenses##'
+$manualLicenseList = '##manual.installedlicenses##'
+$computerName = '##hostname##'
+
 If (Test-Path -Path "${env:ProgramFiles}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
     $logDirPath = "${env:ProgramFiles}\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
 } ElseIf (Test-Path -Path "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
@@ -23,10 +28,6 @@ $logFile = "$logDirPath\configsource_Fortigate_License_Expiration-$computerName.
 
 $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
 $message | Out-File -FilePath $logFile
-
-# Initialize variables
-$autoLicenseList = '##auto.installedlicenses##'
-$manualLicenseList = '##manual.installedlicenses##'
 
 If (($autoLicenseList -match 'Expiration\=') -and -NOT($manualLicenseList -match 'Expiration\=')) {
     $message = ("{0}: Found auto.installedlicences populated." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
@@ -43,8 +44,7 @@ If (($autoLicenseList -match 'Expiration\=') -and -NOT($manualLicenseList -match
     $message | Out-File -FilePath $logFile -Append
 
     Exit 1
-}
-ElseIf (($autoLicenseList -match 'Expiration\=') -and ($manualLicenseList -match 'Expiration\=')) {
+} ElseIf (($autoLicenseList -match 'Expiration\=') -and ($manualLicenseList -match 'Expiration\=')) {
     $message = ("{0}: Found both auto and manual.installedlicenses populated." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     $message | Out-File -FilePath $logFile -Append
 
@@ -55,7 +55,6 @@ ElseIf (($autoLicenseList -match 'Expiration\=') -and ($manualLicenseList -match
 
 #region Main
 If ($discoveredLicenses) {
-    $regex = '(\d{2}):(\d{2}):(\d{2})\s'
     $today = Get-Date
     $i = 0
 
@@ -81,7 +80,7 @@ If ($discoveredLicenses) {
 
         $license | Add-Member -MemberType NoteProperty -Name DaysUntilExpiration -Value (New-TimeSpan -Start $today -End $license.Expiration).Days -Force
 
-        If ($license.DaysUntilExpiration -le 30) {
+        If (($license.DaysUntilExpiration -le 30) -and ($license.DaysUntilExpiration -gt 7)) {
             $license | Add-Member -MemberType NoteProperty -Name 30DayAlert -Value True -Force
             $license | Add-Member -MemberType NoteProperty -Name 7DayAlert -Value False -Force
         } ElseIf ($license.DaysUntilExpiration -le 7) {
@@ -96,8 +95,7 @@ If ($discoveredLicenses) {
     ($licenseObjects | Out-String)
 
     Exit 0
-}
-Else {
+} Else {
     $message = ("{0}: No licenses retrieved." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     $message | Out-File -FilePath $logFile -Append
 
