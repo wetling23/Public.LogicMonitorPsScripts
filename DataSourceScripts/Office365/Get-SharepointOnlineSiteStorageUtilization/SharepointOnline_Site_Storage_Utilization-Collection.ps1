@@ -4,6 +4,7 @@
     .NOTES
         V2019.09.17.0
         V2022.06.22.0
+        V2022.06.22.1
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Office365/Get-SharepointOnlneSiteStorageUtilization
 #>
@@ -42,10 +43,10 @@ Do {
         $stopLoop = $True
     } Catch {
         If ($_.Exception.Message -match '429') {
-            $message = ("{0}: Rate limit exceeded, retrying in 60 seconds." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+            $message = ("{0}: Rate limit exceeded, retrying in 120 seconds." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
             $message | Out-File -FilePath $logFile -Append
 
-            Start-Sleep -Seconds 60
+            Start-Sleep -Seconds 120
         } Else {
             $message = $message = ("{0}: Unexpected error connecting to SharePointOnline. The specific error is: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
             $message | Out-File -FilePath $logFile -Append
