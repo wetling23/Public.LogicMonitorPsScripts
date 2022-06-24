@@ -29,6 +29,7 @@
         V1.0.0.13 date: 11 December 2019
         V1.0.0.14 date: 8 April 2020
         V1.0.0.15 date: 15 May 2020
+        V1.0.0.16 date: 24 June 2022
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts
     .PARAMETER AccessId
@@ -158,7 +159,7 @@ TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
     If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') { If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Verbose -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Verbose -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Verbose -Message $message } }
 
     # Retrieve the most recent stable version (major and minor) of the collector software.
-    $newestVersion = Get-LogicMonitorCollectorAvailableVersion @cmdParams | Where-Object { $_.stable -eq $true } | Sort-Object -Property releaseEpoch -Descending | Select-Object -First 1
+    $newestVersion = Get-LogicMonitorCollectorAvailableVersion @cmdParams | Where-Object { $_.stable -eq $true } | Sort-Object -Property majorVersion, minorVersion -Descending | Select-Object -First 1
 
     If ($newestVersion) {
         # LogicMonitor uses XX.00X for GA collector releases and XX.X0X for EA collectors. I pad to the left, so that we get three places after the dot.
