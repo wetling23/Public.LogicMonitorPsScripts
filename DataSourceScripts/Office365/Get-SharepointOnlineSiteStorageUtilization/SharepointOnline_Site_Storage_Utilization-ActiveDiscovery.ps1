@@ -15,9 +15,6 @@ param()
 $adminSiteURL = '##sharepointonlineadmin.url##'
 $cred = New-Object System.Management.Automation.PSCredential ('##sharepointonlineadmin.user##', ('##sharepointonlineadmin.pass##' | ConvertTo-SecureString -AsPlainText -Force))
 
-$adminSiteURL = 'https://hs2solutions-admin.sharepoint.com'
-$cred = New-Object System.Management.Automation.PSCredential ('synadmin@bounteous.com', ('Xe6eATx$Nx02#pM0' | ConvertTo-SecureString -AsPlainText -Force))
-
 If (Test-Path -Path "${env:ProgramFiles}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
     $logDirPath = "${env:ProgramFiles}\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
 } ElseIf (Test-Path -Path "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
