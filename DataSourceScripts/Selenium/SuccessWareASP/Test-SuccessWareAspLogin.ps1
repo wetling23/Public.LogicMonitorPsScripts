@@ -8,6 +8,7 @@
         V1.0.0.2 date: 22 January 2021
         V1.0.0.3 date: 13 September 2021
         V1.0.0.4 date: 17 November 2021
+        V1.0.0.5 date: 12 September 2022
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Selenium/SuccessWareASP
 #>
@@ -44,9 +45,22 @@ Function Test-ChromeDriverVersion {
         $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
         Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
+        If (Test-Path -Path "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe") {
+            $chromePath = "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+        } ElseIf (Test-Path -Path "C:\Program Files\Google\Chrome\Application\chrome.exe") {
+            $chromePath = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+        } Else {
+            $message = ("{0}: Google Chrome not installed. {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
+            Write-Error $message; $message | Out-File -FilePath $logFile -Append
+        }
+
+        $message = ("{0}: Chrome is installed at: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $chromePath)
+        Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
         $date = ([datetime]::Now).ToString("yyyy-MM-dd`THH-mm-ss")
         $chromeDriverFileLocation = $(Join-Path $ChromeDriverDir "chromedriver.exe")
-        $chromeVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\Program Files (x86)\Google\Chrome\Application\chrome.exe").FileVersion
+
+        $chromeVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($chromePath).FileVersion
         $chromeMajorVersion = $chromeVersion.split(".")[0]
 
         If (-NOT($chromeMajorVersion -gt 0)) {
@@ -122,7 +136,7 @@ Function Test-ChromeDriverVersion {
             $message = ("{0}: Attempting to extract chromedriver.exe." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
             Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
-            Try { ##need to test this section
+            Try {
                 Expand-Archive -Path "$($ChromeDriverDir.FullName)\chromedriver_win32_$date.zip" -DestinationPath $ChromeDriverDir.FullName -Force -ErrorAction Stop
                 Remove-Item -Path "$($ChromeDriverDir.FullName)\chromedriver_win32_$date.zip" -Force -ErrorAction Continue
 
@@ -153,10 +167,11 @@ Function Test-ChromeDriverVersion {
     }
 }
 
-If (Test-Path -Path "C:\Program Files (x86)\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
-    $logDirPath = "C:\Program Files (x86)\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
-}
-Else {
+If (Test-Path -Path "${env:ProgramFiles}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
+    $logDirPath = "${env:ProgramFiles}\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
+} ElseIf (Test-Path -Path "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
+    $logDirPath = "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
+} Else {
     $logDirPath = "$([System.Environment]::SystemDirectory)" # Directory, into which the log file will be written.
 }
 $logFile = "$logDirPath\datasource-SuccessWareASP_Login_Availability-collection-$computerName.log"
