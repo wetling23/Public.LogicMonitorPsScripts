@@ -6,6 +6,7 @@
     .NOTES
         V1.0.0.0 date: 1 May 2020
             - Initial release.
+        V2022.06.11.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/PropertySourcesScripts/meraki
 #>
@@ -58,7 +59,7 @@ If ($orgId) {
     Write-Verbose $message; $message | Out-File -FilePath $logFile -Append
 
     Try {
-        $nwIds = (Invoke-RestMethod -Method "GET" -Uri "https://dashboard.meraki.com/api/v0/organizations/$orgId/networks" -Headers $headers -ErrorAction Stop).id
+        $nwIds = (Invoke-RestMethod -Method "GET" -Uri "https://dashboard.meraki.com/api/v1/organizations/$orgId/networks" -Headers $headers -ErrorAction Stop).id
     }
     Catch {
         $message = ("{0}: Unexpected error getting network list. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
@@ -78,7 +79,7 @@ If ($orgId) {
             Write-Verbose $message; $message | Out-File -FilePath $logFile -Append
 
             Try {
-                $temp = Invoke-RestMethod -Method "GET" -Uri "https://dashboard.meraki.com/api/v0/networks/$_/devices" -Headers $headers -ErrorAction Stop
+                $temp = Invoke-RestMethod -Method "GET" -Uri "https://dashboard.meraki.com/api/v1/networks/$_/devices" -Headers $headers -ErrorAction Stop
             }
             Catch {
                 $message = ("{0}: Unexpected error getting devices. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
