@@ -1,10 +1,11 @@
 <#
     .DESCRIPTION
-        Use LogicMonitor auto or manual "installedlicenses" LM properties and return days until expiration.
+        Use LogicMonitor auto or manual "genericexpirationdata" LM properties and return days until expiration.
     .NOTES
         Author: Mike Hashemi
         V2022.12.17.0
         V2022.12.18.0
+        V2023.01.09.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Get-GenericLicenseExpiration
 #>
@@ -13,8 +14,8 @@ param()
 
 #region Setup
 #region Initialize variables
-$autoLicenseList = '##auto.installedlicenses##'
-$manualLicenseList = '##manual.installedlicenses##'
+$autoExpirationList = '##auto.genericexpirationdata##'
+$manualExpirationList = '##manual.genericexpirationdata##'
 $computerName = '##hostname##'
 
 If (Test-Path -Path "${env:ProgramFiles}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
@@ -33,38 +34,38 @@ $message | Out-File -FilePath $logFile
 
 #region Parse LM property strings
 #region Generate array
-If (($autoLicenseList -match 'Expiration\=') -and -NOT($manualLicenseList -match 'Expiration\=')) {
+If (($autoExpirationList -match 'Expiration\=') -and -NOT($manualExpirationList -match 'Expiration\=')) {
     $message = ("{0}: Found auto.installedlicences populated." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     $message | Out-File -FilePath $logFile -Append
 
-    $discoveredLicenses = $autoLicenseList -split ','
-} ElseIf (-NOT($autoLicenseList -match 'Expiration\=') -and ($manualLicenseList -match 'Expiration\=')) {
+    $discoveredExpirations = $autoExpirationList -split ','
+} ElseIf (-NOT($autoExpirationList -match 'Expiration\=') -and ($manualExpirationList -match 'Expiration\=')) {
     $message = ("{0}: Found auto.installedlicences populated." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     $message | Out-File -FilePath $logFile -Append
 
-    $discoveredLicenses = $manualLicenseList -split ','
-} ElseIf (-NOT($autoLicenseList -match 'Expiration\=') -and -NOT($manualLicenseList -match 'Expiration\=')) {
+    $discoveredExpirations = $manualExpirationList -split ','
+} ElseIf (-NOT($autoExpirationList -match 'Expiration\=') -and -NOT($manualExpirationList -match 'Expiration\=')) {
     $message = ("{0}: No properly-formatted licenses detected. Verify that the property is formatted correctly (e.g. @{Name=Hardware; Expiration=Sun Dec 17 2023},@{Name=AV Engine; Expiration=Sun Dec 17 2023})." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     $message | Out-File -FilePath $logFile -Append
 
     Exit 1
-} ElseIf (($autoLicenseList -match 'Expiration\=') -and ($manualLicenseList -match 'Expiration\=')) {
-    $message = ("{0}: Found both auto and manual.installedlicenses populated." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+} ElseIf (($autoExpirationList -match 'Expiration\=') -and ($manualExpirationList -match 'Expiration\=')) {
+    $message = ("{0}: Found both auto and manual.genericexpirationdata populated." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     $message | Out-File -FilePath $logFile -Append
 
-    $discoveredLicenses = $autoLicenseList -split ','
-    $discoveredLicenses += $manualLicenseList -split ','
+    $discoveredExpirations = $autoExpirationList -split ','
+    $discoveredExpirations += $manualExpirationList -split ','
 }
 #endregion Generate array
 
 #region Parse array
-If ($discoveredLicenses) {
+If ($discoveredExpirations) {
     $message = ("{0}: Converting string data to an array of objects." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     $message | Out-File -FilePath $logFile -Append
 
-    $licenseObjects = Foreach ($license in $discoveredLicenses) {
+    $expirationObjects = Foreach ($item in $discoveredExpirations) {
         [pscustomObject][Management.Automation.Language.Parser]::ParseInput(
-            $license,
+            $item,
             [ref] $null,
             [ref] $null).
         EndBlock.Statements[0].PipelineElements[0].Expression.SafeGetValue()
@@ -74,11 +75,11 @@ If ($discoveredLicenses) {
 #endregion Parse LM property strings
 
 #region Output
-Foreach ($license in $licenseObjects) {
-    $message = ("{0}: Returning instance: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $license.Name)
+Foreach ($item in $expirationObjects) {
+    $message = ("{0}: Returning instance: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $item.Name)
     $message | Out-File -FilePath $logFile -Append
 
-    Write-Host ("{0}##{1}" -f ($license.Name -replace '\s+'), $license.Name)
+    Write-Host ("{0}##{1}" -f ($item.Name -replace '\s+'), $item.Name)
 }
 #endregion Output
 

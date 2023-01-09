@@ -6,6 +6,7 @@
         V2022.2.7.0
         V2022.2.21.0
         V2022.02.22.0
+        V2023.01.09.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/PropertySourceScripts/fortigate
 #>
@@ -108,8 +109,7 @@ Function Get-FortigateLicenseExpiration {
     Return $parsedLicenses
 }
 
-#region Setup
-# Initialize variables.
+#region Initialize variables
 $computerName = '##system.hostname##'
 $community = '##snmp.community##'
 $snmpAuth = '##snmp.auth##'
@@ -134,6 +134,7 @@ Switch ($snmpversion) {
     'v2c' { $snmpVersion = '2c' }
     'v3' { $snmpVersion = 3 }
 }
+#endregion Initialize variables
 
 If ($snmpPriv -eq 'AES') { $snmpPriv = 'AES128' }
 
@@ -163,10 +164,10 @@ Switch ($snmpAuthToken) {
 }
 #endregion Setup
 
-#region Main
 $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
 $message | Out-File -FilePath $logFile
 
+#region Main
 If ($firmwareVersionProp -match '\d.\d.\d') {
     $message = ("{0}: Parsing firmware version." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     $message | Out-File -FilePath $logFile -Append
@@ -201,7 +202,7 @@ If ($discoveredLicenses -eq 1) {
     $message = ("{0}: Returning list of installed licenses:`r`n{1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $string)
     $message | Out-File -FilePath $logFile -Append
 
-    Write-Host ("installedLicenses={0}" -f $string)
+    Write-Host ("genericexpirationdata={0}" -f $string)
 
     Exit 0
 } Else {
