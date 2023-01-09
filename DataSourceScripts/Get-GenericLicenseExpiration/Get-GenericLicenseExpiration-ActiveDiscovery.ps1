@@ -25,7 +25,7 @@ If (Test-Path -Path "${env:ProgramFiles}\LogicMonitor\Agent\Logs" -ErrorAction S
 } Else {
     $logDirPath = "$([System.Environment]::SystemDirectory)" # Directory, into which the log file will be written.
 }
-$logFile = "$logDirPath\datasource_Generic_License_Expiration_AD-$computerName.log"
+$logFile = "$logDirPath\datasource_Get_Generic_Item_Expiration_Date_AD-$computerName.log"
 #endregion Initialize variables
 #endregion Setup
 
