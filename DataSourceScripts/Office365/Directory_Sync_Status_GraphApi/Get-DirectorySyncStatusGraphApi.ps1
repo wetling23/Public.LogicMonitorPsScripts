@@ -6,7 +6,7 @@
         V2022.10.04.0
         V2023.02.28.0
     .LINK
-        
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Office365/Directory_Sync_Status_GraphApi
 #>
 [CmdletBinding()]
 param(
