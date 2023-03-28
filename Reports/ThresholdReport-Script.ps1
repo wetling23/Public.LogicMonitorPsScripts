@@ -36,6 +36,8 @@
         See https://www.logicmonitor.com/support/rest-api-developers-guide/v1/devices/get-devices#Example-Request-5--GET-all-devices-that-have-a-spe
     .PARAMETER Recursive
         When included, the script will identify all subgroups of the provided group (GroupName or GroupId) and will retrieve threshold data for devices in all of them. When ommitted, only data for devices in the identified group will be returned.
+    .PARAMETER DataSourceId
+        Represents the LogicMonitor ID of the desired DataSource. when included, the script will filter the list of retrieved devices, to include only those matching the "AppliesTo" of the selected DataSource.
     .PARAMETER OutputPath
         When provided, the script will output the report to this path.
     .PARAMETER EventLogSource
@@ -403,13 +405,16 @@ Foreach ($device in $devices) {
 #region Output
 Switch ($PsCmdlet.ParameterSetName) {
     "GroupFilter" {
-        $fileName = "thresholdReport-$GroupName.csv"
+        $fileName = "thresholdReport-Group-$GroupName.csv"
     }
     { $_ -in ("IdFilter", "StringFilter") } {
-        If (-NOT($fileId)) { $fileName = "thresholdReport-$(([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")).csv" } Else { $fileName = "thresholdReport-$fileId.csv" }
+        If (-NOT($fileId)) { $fileName = "thresholdReport-Filter-$(([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")).csv" } Else { $fileName = "thresholdReport-Group-$fileId.csv" }
     }
     "AllDevices" {
         $fileName = "thresholdReport-AllDevices.csv"
+    }
+    "DataSourceFilter" {
+        $fileName = "thresholdReport-DataSource-$DataSourceId.csv"
     }
 }
 
