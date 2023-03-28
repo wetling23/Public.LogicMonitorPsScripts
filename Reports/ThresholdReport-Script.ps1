@@ -13,6 +13,7 @@
         V2022.03.25.0
         V2022.04.14.0
         V2022.12.14.0
+        V2023.03.28.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Reports/ThresholdReport-Script.ps1
     .PARAMETER AccessId
@@ -69,34 +70,41 @@
         PS C:\> .\ThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -DeviceFilter 'filter=id:10'
 
         In this example, the script gets device with ID 10 from LogicMonitor, and generates a threshold report for it. Limited logging is written to the console host only. Output is sent only to the host.
+    .EXAMPLE
+        PS C:\> .\ThresholdReport-Script.ps1 -AccessId <access Id> -AccessKey <access key> -AccountName <account name> -DataSourceId 24
+
+        In this example, the script gets all devices matching the AppliesTo of DataSource 24, and generates a threshold report for them. Limited logging is written to the console host only. Output is sent only to the host.
 #>
 [CmdletBinding(DefaultParameterSetName = 'AllDevices')]
 Param (
     [Parameter(Mandatory)]
-    [string]$AccessId,
+    [String]$AccessId,
 
     [Parameter(Mandatory)]
-    [securestring]$AccessKey,
+    [SecureString]$AccessKey,
 
     [Parameter(Mandatory)]
-    [string]$AccountName,
+    [String]$AccountName,
 
     [Parameter(Mandatory, ParameterSetName = 'GroupFilter')]
-    [string]$GroupName,
+    [String]$GroupName,
 
     [Parameter(Mandatory, ParameterSetName = 'IdFilter')]
-    [string]$GroupId,
+    [String]$GroupId,
 
     [Parameter(Mandatory, ParameterSetName = 'GroupStringFilter')]
-    [string]$GroupFilter,
+    [String]$GroupFilter,
 
     [Parameter(Mandatory, ParameterSetName = 'DeviceStringFilter')]
-    [string]$DeviceFilter,
+    [String]$DeviceFilter,
 
     [Parameter(ParameterSetName = 'GroupFilter')]
     [parameter(ParameterSetName = 'IdFilter')]
     [parameter(ParameterSetName = 'GroupStringFilter')]
-    [switch]$Recursive,
+    [Switch]$Recursive,
+
+    [Parameter(Mandatory, ParameterSetName = 'DataSourceFilter')]
+    [Int]$DataSourceId,
 
     [ValidateScript( {
             If (-NOT ($_ | Test-Path) ) {
@@ -109,9 +117,9 @@ Param (
         })]
     [System.IO.DirectoryInfo]$OutputPath,
 
-    [string]$EventLogSource,
+    [String]$EventLogSource,
 
-    [string]$LogPath
+    [String]$LogPath
 )
 #Requires -Modules LogicMonitor
 
@@ -151,18 +159,14 @@ If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') {
 } Else {
     If ($EventLogSource -and (-NOT $LogPath)) {
         $loggingParams = @{
-            #Verbose        = $False
             EventLogSource = $EventLogSource
         }
     } ElseIf ($LogPath -and (-NOT $EventLogSource)) {
         $loggingParams = @{
-            #Verbose = $False
             LogPath = $LogPath
         }
     } Else {
-        <#$loggingParams = @{
-            $Verbose = $null
-        }#>
+        $loggingParams = @{}
     }
 }
 #endregion Logging splatting
@@ -256,6 +260,9 @@ Switch ($PsCmdlet.ParameterSetName) {
     "DeviceStringFilter" {
         $devices = Get-LogicMonitorDevice -Filter $DeviceFilter @commandParams @loggingParams
     }
+    "DataSourceFilter" {
+        $devices = Get-LogicMonitorDataSourceDevice -Id 24 @commandParams @loggingParams
+    }
 }
 
 If (($devices -eq "Error") -or ($devices.id.Count -lt 1)) {
@@ -280,7 +287,7 @@ Foreach ($device in $devices) {
     If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
     $resourcePath = "/device/devices/$($device.id)/instances"
-    $url = "https://$AccountName.logicmonitor.com/santaba/rest$resourcePath"
+    $url = ("https://$AccountName.logicmonitor.com/santaba/rest$resourcePath{0}" -f $(If ($PsCmdlet.ParameterSetName -eq 'DataSourceFilter') { "?filter=dataSourceId:$DataSourceId" }))
     $epoch = [Math]::Round((New-TimeSpan -Start (Get-Date -Date "1/1/1970") -End (Get-Date).ToUniversalTime()).TotalMilliseconds)
 
     # Concatenate Request Details
@@ -332,7 +339,7 @@ Foreach ($device in $devices) {
             "X-Version"     = 3
         }
 
-        $message = ("{0}: Getting DataSources." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+        $message = ("{0}: Getting DataSource settings." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
         $datasource = Invoke-RestMethod -Uri $url -Method $httpVerb -Header $headers -ErrorAction Stop
