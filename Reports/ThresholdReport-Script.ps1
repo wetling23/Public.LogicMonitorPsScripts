@@ -14,6 +14,7 @@
         V2022.04.14.0
         V2022.12.14.0
         V2023.03.28.0
+        V2023.04.01.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Reports/ThresholdReport-Script.ps1
     .PARAMETER AccessId
@@ -391,7 +392,8 @@ Foreach ($device in $devices) {
                     DataSource                 = ($instance.name -split '-', 2)[0]
                     Instance                   = ($instance.name -split '-', 2)[-1]
                     Datapoint                  = $datapoint.dataPointName
-                    EffectiveThreshold         = $datapoint.globalAlertExpr
+                    EffectiveThreshold         = $(If ($datapoint.alertExpr) { $datapoint.alertExpr } Else { $datapoint.globalAlertExpr })
+                    GlobalThreshold            = $datapoint.globalAlertExpr
                     CollectMethod              = If (($instance.name -split '-', 2)[0] -eq $datasource.name.TrimEnd('-')) { $datasource.collectMethod } Else { $null }
                     CollectionInterval_Minutes = If (($instance.name -split '-', 2)[0] -eq $datasource.name.TrimEnd('-')) { $datasource.collectInterval / 60 } Else { $null }
                     AlertTriggerInterval       = $datasource.dataPoints | Where-Object { $_.name -eq $datapoint.dataPointName } | Select-Object -ExpandProperty alertTransitionInterval
