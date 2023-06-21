@@ -54,7 +54,7 @@ Try {
         $message = ("{0}: Unexpected error establishing an SSH session to {1}. The error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName, $_.Exception.Message)
         $message | Out-File -FilePath $logFile -Append
 
-        Write-Host ("auto.fortinet.vdomlist=unknown")
+        Write-Host ("fortinet.vdomlist=unknown")
 
         Exit 1
     }
@@ -66,7 +66,7 @@ Try {
         $message = ("{0}: Unable to establish the SSH session." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         $message | Out-File -FilePath $logFile -Append
 
-        Write-Host ("auto.fortinet.vdomlist=unknown")
+        Write-Host ("fortinet.vdomlist=unknown")
 
         Exit 1
     }
@@ -91,7 +91,7 @@ Try {
         $message | Out-File -FilePath $logFile -Append
 
         #region Output
-        Write-Host ("auto.fortinet.vdomlist={0}" -f "disabled")
+        Write-Host ("fortinet.vdomlist={0}" -f "disabled")
         #endregion Output
     } ElseIf ($response) {
         #region Get VDOM list
@@ -114,7 +114,7 @@ Try {
             $message | Out-File -FilePath $logFile -Append
 
             #region Output
-            Write-Host ("auto.fortinet.vdomlist=unknown")
+            Write-Host ("fortinet.vdomlist=unknown")
             #endregion Output
 
             $exitCode = 1
@@ -122,16 +122,16 @@ Try {
         #endregion Get VDOM list
 
         #region Output
-        $message = ("{0}: Returning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), "auto.auto.fortinet.vdomlist=$((($vdoms -join ',').TrimEnd(',') | Out-String).Trim())")
+        $message = ("{0}: Returning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), "fortinet.vdomlist=$((($vdoms -join ',').Trim(',') | Out-String).Trim())")
         $message | Out-File -FilePath $logFile -Append
 
-        Write-Host ("auto.auto.fortinet.vdomlist={0}" -f (($vdoms -join ',').TrimEnd(',') | Out-String).Trim())
+        Write-Host ("fortinet.vdomlist={0}" -f (($vdoms -join ',').Trim(',') | Out-String).Trim())
         #endregion Output
     } Else {
         $message = ("{0}: No response to the 'get system status' command." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         $message | Out-File -FilePath $logFile -Append
 
-        Write-Host ("auto.fortinet.vdomlist=unknown")
+        Write-Host ("fortinet.vdomlist=unknown")
     }
 
     #region Cleanup
@@ -152,7 +152,7 @@ Try {
         ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, $_.InvocationInfo.ScriptLineNumber, $_.InvocationInfo.MyCommand.Name, $_.Exception.Message)
     $message | Out-File -FilePath $logFile
 
-    Write-Host ("auto.fortinet.vdomlist=unknown")
+    Write-Host ("fortinet.vdomlist=unknown")
 
     Exit 1
 }
