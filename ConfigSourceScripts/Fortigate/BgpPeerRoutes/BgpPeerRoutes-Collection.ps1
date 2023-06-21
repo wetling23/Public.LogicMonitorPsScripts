@@ -8,6 +8,7 @@
         V1.0.0.1 date: 26 February 2021
         V1.0.0.2 date: 31 March 2021
         V1.0.0.3 date: 18 August 2021
+        V2023.06.21.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/ConfigSourceScripts/Fortigate/BgpPeerRoutes/
     .EXAMPLE
@@ -42,7 +43,7 @@ Try {
     $message = ("{0}: Defining command." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
     $message | Out-File -FilePath $logFile -Append
 
-    If ($vdom -eq 'novdoms') {
+    If (($vdom -eq 'novdoms') -or ($vdom -eq 'disabled')) {
         $message = ("{0}: No virtual domains configured." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName)
         $message | Out-File -FilePath $logFile -Append
 
