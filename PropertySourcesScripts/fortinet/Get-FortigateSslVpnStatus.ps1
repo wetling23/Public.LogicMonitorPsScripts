@@ -5,6 +5,12 @@
         Author: Mike Hashemi
         V2023.06.21.0
             - Requires the Posh-SSH PowerShell module (Install-Module -Name Posh-SSH).
+        V2023.06.23.0
+        V2023.06.23.1
+        V2023.06.23.2
+        V2023.06.23.3
+        V2023.06.23.4
+        V2023.06.23.5
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/PropertySourcesScripts/fortinet
     .EXAMPLE
@@ -16,12 +22,24 @@ param ()
 Try {
     #region Setup
     #region Initialize variables
+    #region Creds
     $computerName = "##HOSTNAME##" # Target host for the script to query.
-    $pw = @'
+    If ('##ssh.user##' -and '##ssh.pass##') {
+        $user = '##ssh.user##'
+        $pw = @'
 ##ssh.pass##
 '@
-    [pscredential]$credential = New-Object System.Management.Automation.PSCredential ('##ssh.user##', ($pw | ConvertTo-SecureString -AsPlainText -Force))
+    } ElseIf ('##config.user##' -and '##config.pass##') {
+        $user = '##config.user##'
+        $pw = @'
+##config.pass##
+'@
+    }
+
+    [pscredential]$credential = New-Object System.Management.Automation.PSCredential ($user, ($pw | ConvertTo-SecureString -AsPlainText -Force))
     Remove-Variable -Name pw -Force -ErrorAction SilentlyContinue
+    #endregion Creds
+
     $exitCode = 0
     $enabled = $false
     $returnedState = $false
@@ -57,7 +75,7 @@ Try {
         $message = ("{0}: Unexpected error establishing an SSH session to {1}. The error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName, $_.Exception.Message)
         $message | Out-File -FilePath $logFile -Append
 
-        Write-Host ('auto.synoptek.fortinet.sslvpn_enabled=Unknown')
+        Write-Host ('synoptek.fortinet.sslvpn_enabled=Unknown')
 
         Exit 1
     }
@@ -69,7 +87,7 @@ Try {
         $message = ("{0}: Unable to establish the SSH session." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         $message | Out-File -FilePath $logFile -Append
 
-        Write-Host ('auto.synoptek.fortinet.sslvpn_enabled=Unknown')
+        Write-Host ('synoptek.fortinet.sslvpn_enabled=Unknown')
 
         Exit 1
     }
@@ -87,7 +105,7 @@ Try {
         $message = ("{0}: Sending 'config vdom'." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
         $message | Out-File -FilePath $logFile -Append
 
-        Invoke-SSHStreamShellCommand -ShellStream $stream -Command "config vdom"
+        $null = Invoke-SSHStreamShellCommand -ShellStream $stream -Command "config vdom"
         #endregion Enter vdom config
 
         Foreach ($vdom in $vdoms) {
@@ -106,7 +124,7 @@ Try {
                     $message | Out-File -FilePath $logFile -Append
                 }
 
-                Write-Host ('auto.synoptek.fortinet.sslvpn_enabled=Unknown')
+                Write-Host ('synoptek.fortinet.sslvpn_enabled=Unknown')
 
                 Return 1
             }
@@ -127,7 +145,7 @@ Try {
                     $message | Out-File -FilePath $logFile -Append
                 }
 
-                Write-Host ('auto.synoptek.fortinet.sslvpn_enabled=Unknown')
+                Write-Host ('synoptek.fortinet.sslvpn_enabled=Unknown')
 
                 Return 1
             }
@@ -149,7 +167,7 @@ Try {
                     $message = ("{0}: Returning property and breaking loop." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
                     $message | Out-File -FilePath $logFile -Append
 
-                    Write-Host ('auto.synoptek.fortinet.sslvpn_enabled={0}' -f $enabled)
+                    Write-Host ('synoptek.fortinet.sslvpn_enabled={0}' -f $enabled)
                     Break
                 }
             } ElseIf (($response) -and ($response.Length -eq 1)) {
@@ -175,7 +193,7 @@ Try {
                     $message | Out-File -FilePath $logFile -Append
                 }
 
-                Write-Host ('auto.synoptek.fortinet.sslvpn_enabled=Unknown')
+                Write-Host ('synoptek.fortinet.sslvpn_enabled=Unknown')
 
                 Return 1
             }
@@ -191,7 +209,7 @@ Try {
 
         If ($returnedState -eq $false) {
             # SSL VPN must be disabled.
-            Write-Host ('auto.synoptek.fortinet.sslvpn_enabled={0}' -f $enabled)
+            Write-Host ('synoptek.fortinet.sslvpn_enabled={0}' -f $enabled)
         }
     } Else {
         #region Send show vpn ssl settings
@@ -199,7 +217,8 @@ Try {
         $message | Out-File -FilePath $logFile -Append
 
         Try {
-            $response = Invoke-SSHStreamShellCommand -ShellStream $stream -Command "show full-configuration vpn ssl settings | grep '.*\(\(status\)\|\(source-interface\)\).*'" -ErrorAction Stop
+            #$response = Invoke-SSHStreamShellCommand -ShellStream $stream -Command "show full-configuration vpn ssl settings | grep '.*\(\(status\)\|\(source-interface\)\).*'" -ErrorAction Stop
+            $response = Invoke-SSHStreamShellCommand -ShellStream $stream -Command "show full-configuration vpn ssl settings" -ErrorAction Stop
         } Catch {
             If ($_.Exception.Message -match 'Cannot access a disposed object') {
                 $message = ("{0}: The session was terminated before the command was run." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
@@ -209,7 +228,7 @@ Try {
                 $message | Out-File -FilePath $logFile -Append
             }
 
-            Write-Host ('auto.synoptek.fortinet.sslvpn_enabled=Unknown')
+            Write-Host ('synoptek.fortinet.sslvpn_enabled=Unknown')
 
             Return 1
         }
@@ -219,28 +238,37 @@ Try {
             $message = ("{0}: Parsing response ({1})." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), ($response | Out-String).Trim())
             $message | Out-File -FilePath $logFile -Append
 
-            If (($response -match 'set status enable') -and ($response -match 'source-interface')) {
+            If (($response -match 'set status enable') -and ($response -match 'set source-interface')) {
                 $message = ("{0}: Found SSL VPN enabled." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
                 $message | Out-File -FilePath $logFile -Append
 
                 $enabled = $true
-                $returnedState = $true
 
                 If ($enabled -eq $true) {
                     $message = ("{0}: Returning property and breaking loop." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
                     $message | Out-File -FilePath $logFile -Append
 
-                    Write-Host ('auto.synoptek.fortinet.sslvpn_enabled={0}' -f $enabled)
+                    $returnedState = $true
+                    Write-Host ('synoptek.fortinet.sslvpn_enabled={0}' -f $enabled)
                 }
             }
         } ElseIf (($response) -and ($response.Length -eq 1)) {
             $message = ("{0}: A blank response was received, indicating the default configuration (disabled) is in place." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
             $message | Out-File -FilePath $logFile -Append
+
+            $returnedState = $true
+            Write-Host ('synoptek.fortinet.sslvpn_enabled={0}' -f $enabled)
         } Else {
             $message = ("{0}: No recorded response to the 'show full-configuration vpn ssl settings...' command. This is an unexpected condition, but the script will attempt to continue." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
             $message | Out-File -FilePath $logFile -Append
 
-            Write-Host ('auto.synoptek.fortinet.sslvpn_enabled=Unknown')
+            $returnedState = $true
+            Write-Host ('synoptek.fortinet.sslvpn_enabled=Unknown')
+        }
+
+        If ($returnedState -eq $false) {
+            # SSL VPN must be disabled.
+            Write-Host ('synoptek.fortinet.sslvpn_enabled={0}' -f $enabled)
         }
     }
     #endregion Main
@@ -263,7 +291,7 @@ Try {
         ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, $_.InvocationInfo.ScriptLineNumber, $_.InvocationInfo.MyCommand.Name, $_.Exception.Message)
     $message | Out-File -FilePath $logFile
 
-    Write-Host ('auto.synoptek.fortinet.sslvpn_enabled=Unknown')
+    Write-Host ('synoptek.fortinet.sslvpn_enabled=Unknown')
 
     Exit 1
 }

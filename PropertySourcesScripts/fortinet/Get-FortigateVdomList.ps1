@@ -6,6 +6,9 @@
         V2023.06.20.0
             - Requires the Posh-SSH PowerShell module (Install-Module -Name Posh-SSH).
         V2023.06.21.0
+        V2023.06.23.0
+        V2023.06.23.1
+        V2023.06.23.2
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/PropertySourcesScripts/fortinet
     .EXAMPLE
@@ -17,13 +20,26 @@ param ()
 Try {
     #region Setup
     #region Initialize variables
-    $vdoms = [System.Collections.Generic.List[PSObject]]::new()
+    #region Creds
     $computerName = "##HOSTNAME##" # Target host for the script to query.
-    $pw = @'
+    If ('##ssh.user##' -and '##ssh.pass##') {
+        $user = '##ssh.user##'
+        $pw = @'
 ##ssh.pass##
 '@
-    [pscredential]$credential = New-Object System.Management.Automation.PSCredential ('##ssh.user##', ($pw | ConvertTo-SecureString -AsPlainText -Force))
+    } ElseIf ('##config.user##' -and '##config.pass##') {
+        $user = '##config.user##'
+        $pw = @'
+##config.pass##
+'@
+    }
+
+    [pscredential]$credential = New-Object System.Management.Automation.PSCredential ($user, ($pw | ConvertTo-SecureString -AsPlainText -Force))
     Remove-Variable -Name pw -Force -ErrorAction SilentlyContinue
+    #endregion Creds
+
+    $vdoms = [System.Collections.Generic.List[PSObject]]::new()
+    $computerName = "##HOSTNAME##" # Target host for the script to query.
     $regex = '(?<=\=)(.*?)(?=\/)'
     $exitCode = 0
     #endregion Initialize variables
@@ -84,6 +100,9 @@ Try {
     $message | Out-File -FilePath $logFile -Append
 
     $response = Invoke-SSHStreamShellCommand -ShellStream $stream -Command "get system status | grep Virtual.domain.configuration"
+
+    $message = ("{0}: The value in `$response (if present) is: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $response)
+    $message | Out-File -FilePath $logFile -Append
     #endregion Check system status
 
     If ($response -match 'disable') {
@@ -122,10 +141,10 @@ Try {
         #endregion Get VDOM list
 
         #region Output
-        $message = ("{0}: Returning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), "fortinet.vdomlist=$((($vdoms -join ',').Trim(',') | Out-String).Trim())")
+        $message = ("{0}: Returning fortinet.vdomlist={1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), ((($vdoms -join ',').Trim(',') | Out-String) -replace '\,+', ',').Trim())
         $message | Out-File -FilePath $logFile -Append
 
-        Write-Host ("fortinet.vdomlist={0}" -f (($vdoms -join ',').Trim(',') | Out-String).Trim())
+        Write-Host ("fortinet.vdomlist={0}" -f ((($vdoms -join ',').Trim(',') | Out-String) -replace '\,+', ',').Trim())
         #endregion Output
     } Else {
         $message = ("{0}: No response to the 'get system status' command." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
