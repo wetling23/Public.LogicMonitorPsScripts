@@ -1,4 +1,5 @@
 <#
+Superseded by Get-MerakiApiDeviceProperty.ps1
     .DESCRIPTION
         Connects to the Meraki API, to retrieve device serial numbers.
 
