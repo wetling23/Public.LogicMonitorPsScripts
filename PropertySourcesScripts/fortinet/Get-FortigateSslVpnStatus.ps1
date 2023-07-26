@@ -11,6 +11,7 @@
         V2023.06.23.3
         V2023.06.23.4
         V2023.06.23.5
+        V2023.06.23.6
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/PropertySourcesScripts/fortinet
     .EXAMPLE
@@ -155,7 +156,7 @@ Try {
                 $message = ("{0}: Parsing response ({1})." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), ($response | Out-String))
                 $message | Out-File -FilePath $logFile -Append
 
-                If (($response -match 'set status enable') -and ($response -match 'source-interface')) {
+                If (($response -match 'set status enable') -and ($response -match 'set source-interface')) {
                     $message = ("{0}: Found SSL VPN enabled." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
                     $message | Out-File -FilePath $logFile -Append
 
@@ -217,8 +218,7 @@ Try {
         $message | Out-File -FilePath $logFile -Append
 
         Try {
-            #$response = Invoke-SSHStreamShellCommand -ShellStream $stream -Command "show full-configuration vpn ssl settings | grep '.*\(\(status\)\|\(source-interface\)\).*'" -ErrorAction Stop
-            $response = Invoke-SSHStreamShellCommand -ShellStream $stream -Command "show full-configuration vpn ssl settings" -ErrorAction Stop
+            $response = Invoke-SSHStreamShellCommand -ShellStream $stream -Command "show full-configuration vpn ssl settings | grep '.*\(\(status\)\|\(source-interface\)\).*'" -ErrorAction Stop
         } Catch {
             If ($_.Exception.Message -match 'Cannot access a disposed object') {
                 $message = ("{0}: The session was terminated before the command was run." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
