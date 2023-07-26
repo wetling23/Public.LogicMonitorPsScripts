@@ -4,6 +4,7 @@
     .NOTES
         V2023.07.25.0
             - Initial release.
+        V2023.07.26.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourcesScripts/Meraki/Get-MerakiUplinkStats
 #>
@@ -52,7 +53,7 @@ Do {
 
         Foreach ($item in $response) {
             Foreach ($uplink in $item.Uplinks) {
-                If ($uplink.status -eq 'active') {
+                If ($uplink.status -in @('active', 'ready')) {
                     $uplinks.Add($([PsCustomObject]@{
                                 networkId        = $item.networkId
                                 serial           = $item.serial
