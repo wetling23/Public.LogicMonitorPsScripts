@@ -51,11 +51,11 @@ Do {
         $orgId = ((Invoke-RestMethod -Method "GET" -Uri "https://dashboard.meraki.com/api/v1/organizations" -Headers $headers -ErrorAction Stop).Where({ $_.name -eq "$OrgName" })).id
     } Catch {
         If ($_.Exception.Message -match '429') {
-            $message = ("{0}: Rate limit reached. Waiting 60 seconds before re-try." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+            $message = ("{0}: Rate limit reached. Waiting 12 seconds before re-try." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
             If ($debug) { Write-Host $message }; $message | Out-File -FilePath $logFile -Append
 
             $i++
-            Start-Sleep -Seconds 60
+            Start-Sleep -Seconds 12
         } Else {
             $message = ("{0}: Unexpected error getting org ID. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
             If ($debug) { Write-Error $message }; $message | Out-File -FilePath $logFile -Append
@@ -88,11 +88,11 @@ Do {
         $data = Invoke-RestMethod -Method "GET" -Uri "https://dashboard.meraki.com/api/v1/organizations/$orgId/devices?name=CLEBAK-MX64-FW1" -Headers $headers -ErrorAction Stop
     } Catch {
         If ($_.Exception.Message -match '429') {
-            $message = ("{0}: Rate limit reached. Waiting 5 seconds before re-try." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+            $message = ("{0}: Rate limit reached. Waiting 12 seconds before re-try." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
             If ($debug) { Write-Host $message }; $message | Out-File -FilePath $logFile -Append
 
             $i++
-            Start-Sleep -Seconds 5
+            Start-Sleep -Seconds 12
         } Else {
             $message = ("{0}: Unexpected error getting device data. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
             If ($debug) { Write-Error $message }; $message | Out-File -FilePath $logFile -Append
