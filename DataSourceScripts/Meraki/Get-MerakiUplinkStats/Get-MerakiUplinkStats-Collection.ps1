@@ -4,6 +4,7 @@
     .NOTES
         V2023.07.25.0
             - Initial release.
+        V2023.07.26.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourcesScripts/Meraki/Get-MerakiUplinkStats
 #>
@@ -91,7 +92,7 @@ If ($debug) { Write-Host $message }; $message | Out-File -FilePath $logFile -App
 
 Write-Host ("LossPercent={0}" -f $lossAndLatency.lossPercent)
 Write-Host ("LatencyMs={0}" -f $lossAndLatency.latencyMs)
-Write-Host ("Throughput={0}" -f [System.Math]::Round(($lossAndLatency.goodput / 1000), 2))
+Write-Host ("Goodput={0}" -f [System.Math]::Round(($lossAndLatency.goodput / 1000), 2))
 Write-Host ("Jitter={0}" -f $lossAndLatency.jitter)
 #endregion Output
 
