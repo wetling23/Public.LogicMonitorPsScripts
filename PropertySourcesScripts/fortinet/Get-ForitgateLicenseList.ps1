@@ -7,8 +7,10 @@
         V2022.2.21.0
         V2022.02.22.0
         V2023.01.09.0
+        V2023.08.15.0
+        V2023.08.15.1
     .LINK
-        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/PropertySourceScripts/fortigate
+        https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/PropertySourceScripts/fortinet
 #>
 [CmdletBinding()]
 param()
@@ -168,13 +170,13 @@ $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:
 $message | Out-File -FilePath $logFile
 
 #region Main
-If ($firmwareVersionProp -match '\d.\d.\d') {
+If ($firmwareVersionProp -match '\d+\.\d+\.\d+') {
     $message = ("{0}: Parsing firmware version." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
     $message | Out-File -FilePath $logFile -Append
 
     $firmwareVersion = $matches[0]
 
-    If ($firmwareVersion -lt '6.4.2') {
+    If ([System.Version]$firmwareVersion -lt '6.4.2') {
         $message = ("{0}: The device does not support license retrieval via SNMP. The minimum firmware version is 6.4.2 ({1} has version {2})." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName, $firmwareVersion)
         $message | Out-File -FilePath $logFile -Append
 
