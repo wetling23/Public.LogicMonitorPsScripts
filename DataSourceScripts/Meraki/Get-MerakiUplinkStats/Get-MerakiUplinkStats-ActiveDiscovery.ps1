@@ -5,6 +5,8 @@
         V2023.07.25.0
             - Initial release.
         V2023.07.26.0
+        V2023.07.27.0
+        V2023.07.28.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourcesScripts/Meraki/Get-MerakiUplinkStats
 #>
@@ -18,8 +20,8 @@ $name = '##system.hostname##'
 $orgId = '##auto.meraki.api.orgid##'
 $apiKey = '##meraki.api.key##'
 $serialNumber = '##auto.serialnumber##'
-$debug = $false
 $uplinks = [System.Collections.Generic.List[object]]::new()
+$debug = $false
 
 $headers = @{
     "X-Cisco-Meraki-API-Key" = $apiKey
@@ -76,11 +78,12 @@ Do {
         }
     } Catch {
         If ($_.Exception.Message -match '429') {
-            $message = ("{0}: Rate limit reached. Waiting 12 seconds before re-try." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+            $seconds = (Get-Random -Minimum 12 -Maximum 60)
+            $message = ("{0}: Rate limit reached. Waiting {1} seconds before re-try." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $seconds)
             If ($debug) { Write-Host $message }; $message | Out-File -FilePath $logFile -Append
 
             $i++
-            Start-Sleep -Seconds 12
+            Start-Sleep -Seconds $seconds
         } Else {
             $message = ("{0}: Unexpected error getting uplink statuses. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
             If ($debug) { Write-Error $message }; $message | Out-File -FilePath $logFile -Append
@@ -110,11 +113,12 @@ Do {
         $lossAndLatency = (Invoke-RestMethod -Method "GET" -Uri "https://dashboard.meraki.com/api/v1/organizations/$orgId/devices/uplinksLossAndLatency" -Headers $headers -ErrorAction Stop).Where({ $_.serial -eq $serialNumber })
     } Catch {
         If ($_.Exception.Message -match '429') {
-            $message = ("{0}: Rate limit reached. Waiting 12 seconds before re-try." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+            $seconds = (Get-Random -Minimum 12 -Maximum 60)
+            $message = ("{0}: Rate limit reached. Waiting {1} seconds before re-try." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $seconds)
             If ($debug) { Write-Host $message }; $message | Out-File -FilePath $logFile -Append
 
             $i++
-            Start-Sleep -Seconds 12
+            Start-Sleep -Seconds $seconds
         } Else {
             $message = ("{0}: Unexpected error getting uplink loss and latency data. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
             If ($debug) { Write-Error $message }; $message | Out-File -FilePath $logFile -Append

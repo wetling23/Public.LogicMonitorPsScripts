@@ -5,6 +5,8 @@
         V2023.07.25.0
             - Initial release.
         V2023.07.26.0
+        V2023.07.27.0
+        V2023.07.28.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourcesScripts/Meraki/Get-MerakiUplinkStats
 #>
@@ -35,7 +37,7 @@ If (Test-Path -Path "${env:ProgramFiles}\LogicMonitor\Agent\Logs" -ErrorAction S
 } Else {
     $logDirPath = "$([System.Environment]::SystemDirectory)" # Directory, into which the log file will be written.
 }
-$logFile = "$logDirPath\propertySource-Get_Meraki_Uplink_Stats-ad-$name.log"
+$logFile = "$logDirPath\datasource-Get_Meraki_Uplink_Stats-collection-$name.log"
 #endregion Logging file setup
 
 $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
@@ -54,11 +56,12 @@ Do {
         $lossAndLatency = Invoke-RestMethod -Method "GET" -Uri $uri -Headers $headers -ErrorAction Stop
     } Catch {
         If ($_.Exception.Message -match '429') {
-            $message = ("{0}: Rate limit reached. Waiting 12 seconds before re-try." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
+            $seconds = (Get-Random -Minimum 12 -Maximum 60)
+            $message = ("{0}: Rate limit reached. Waiting {1} seconds before re-try." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $seconds)
             If ($debug) { Write-Host $message }; $message | Out-File -FilePath $logFile -Append
 
             $i++
-            Start-Sleep -Seconds 12
+            Start-Sleep -Seconds $seconds
         } Else {
             $message = ("{0}: Unexpected error getting loss and latency history. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
             If ($debug) { Write-Error $message }; $message | Out-File -FilePath $logFile -Append
