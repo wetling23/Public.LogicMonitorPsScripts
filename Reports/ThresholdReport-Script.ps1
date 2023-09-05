@@ -15,6 +15,7 @@
         V2022.12.14.0
         V2023.03.28.0
         V2023.04.01.0
+        V2023.09.05.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Reports/ThresholdReport-Script.ps1
     .PARAMETER AccessId
@@ -392,6 +393,7 @@ Foreach ($device in $devices) {
                     DataSource                 = ($instance.name -split '-', 2)[0]
                     Instance                   = ($instance.name -split '-', 2)[-1]
                     Datapoint                  = $datapoint.dataPointName
+                    DatapointDescription       = $datapoint.dataPointDescription
                     EffectiveThreshold         = $(If ($datapoint.alertExpr) { $datapoint.alertExpr } Else { $datapoint.globalAlertExpr })
                     GlobalThreshold            = $datapoint.globalAlertExpr
                     CollectMethod              = If (($instance.name -split '-', 2)[0] -eq $datasource.name.TrimEnd('-')) { $datasource.collectMethod } Else { $null }
@@ -425,7 +427,7 @@ If ($OutputPath) {
         $reportList | Export-Csv -Path "$($OutputPath.FullName.TrimEnd('\'))\$fileName" -ErrorAction Stop -NoTypeInformation
     } Catch {
         $message = ("{0}: Unexpected error sending output to {1}. The specific error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $OutputPath, $_.Exception.Message)
-        If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
+        Out-PsLogging @loggingParams -MessageType Error -Message $message
 
         Exit 1
     }
@@ -437,6 +439,6 @@ If ($OutputPath) {
 } Else {
     $reportList
 }
-#region Output
+#endregion Output
 
 Exit 0
