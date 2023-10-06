@@ -10,6 +10,7 @@
         V1.0.0.4 date: 17 November 2021
         V1.0.0.5 date: 12 September 2022
         V2023.10.06.0
+        V2023.10.06.1
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Selenium/SuccessWareASP
 #>
@@ -17,16 +18,7 @@
 param()
 
 #region Setup
-# Initialize variables.
-$seleniumPath = 'C:\it\selenium' # Path to the selenium WebDriver (and ChromeDriver) files.
-$computerName = '##system.hostname##'
-$url = '##successware.url##'
-$username = '##successware.user##'
-$pass = @'
-##successware.pass##
-'@
-$cred = New-Object System.Management.Automation.PSCredential ($username, $($pass | ConvertTo-SecureString -AsPlainText -Force))
-
+#region In-line functions
 Function Test-BrowserDriverVersion {
     <#
         .DESCRIPTION
@@ -36,6 +28,7 @@ Function Test-BrowserDriverVersion {
             V2023.02.02.0
             V2023.02.02.1
             V2023.10.06.0
+            V2023.10.06.1
         .LINK
             https://github.com/Synoptek-ServiceEnablement/Synoptek.PsIntegrations/blob/master/Selenium/
         .PARAMETER BrowserDriverDir
@@ -228,6 +221,15 @@ Function Test-BrowserDriverVersion {
 
                         Return 1
                     }
+
+                    Try {
+                        Remove-Item -Path "$($BrowserDriverDir.FullName)\$driverName" -Force
+                    } Catch {
+                        $message = ("{0}: Unexpected error removing the old {1}. Error: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $_.Exception.Message)
+                        If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+
+                        Return 1
+                    }
                 }
 
                 (New-Object System.Net.WebClient).DownloadFile($driverZipLink, ("$(($BrowserDriverDir.FullName).TrimEnd('\'))\{0}driver_{1}.zip" -f $browser, $date))
@@ -256,7 +258,6 @@ Function Test-BrowserDriverVersion {
             If (-NOT (Test-Path -Path "$($BrowserDriverDir.FullName)\$driverName")) {
                 Try {
                     Get-ChildItem -Path $BrowserDriverDir.FullName -Recurse -Include $driverName | Move-Item -Destination $BrowserDriverDir -ErrorAction Stop
-                    Remove-Item
                 } Catch {
                     $message = ("{0}: Unexpected error searching for and/or moving {1} to {2}. Error: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $BrowserDriverDir.FullName, $_.Exception.Message)
                     If ($LogPath) { Write-Error $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Error $message; }
@@ -284,7 +285,20 @@ Function Test-BrowserDriverVersion {
         Return 1
     }
 }
+#endregion In-line functions
 
+#region Initialize variables
+$seleniumPath = 'C:\it\selenium' # Path to the selenium WebDriver (and ChromeDriver) files.
+$computerName = '##system.hostname##'
+$url = '##successware.url##'
+$username = '##successware.user##'
+$pass = @'
+##successware.pass##
+'@
+$cred = New-Object System.Management.Automation.PSCredential ($username, $($pass | ConvertTo-SecureString -AsPlainText -Force))
+#endregion Initialize variables
+
+#region Logging
 If (Test-Path -Path "${env:ProgramFiles}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
     $logDirPath = "${env:ProgramFiles}\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
 } ElseIf (Test-Path -Path "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
@@ -293,12 +307,13 @@ If (Test-Path -Path "${env:ProgramFiles}\LogicMonitor\Agent\Logs" -ErrorAction S
     $logDirPath = "$([System.Environment]::SystemDirectory)" # Directory, into which the log file will be written.
 }
 $logFile = "$logDirPath\datasource-SuccessWareASP_Login_Availability-collection-$computerName.log"
+#endregion Logging
+
+$message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
+Write-Host $message; $message | Out-File -FilePath $logFile
 #endregion Setup
 
 #region Main
-$message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-Write-Host $message; $message | Out-File -FilePath $logFile
-
 $result = Test-BrowserDriverVersion -BrowserDriverDir $seleniumPath -Browser Chrome
 
 If ($result -eq 1) {
