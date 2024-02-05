@@ -11,6 +11,7 @@
         V1.0.0.5 date: 12 September 2022
         V2023.10.06.0
         V2023.10.06.1
+        V2024.02.05.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Selenium/SuccessWareASP
 #>
@@ -28,7 +29,7 @@ Function Test-BrowserDriverVersion {
             V2023.02.02.0
             V2023.02.02.1
             V2023.10.06.0
-            V2023.10.06.1
+            V2024.02.01.0
         .LINK
             https://github.com/Synoptek-ServiceEnablement/Synoptek.PsIntegrations/blob/master/Selenium/
         .PARAMETER BrowserDriverDir
@@ -56,7 +57,7 @@ Function Test-BrowserDriverVersion {
                 }
                 Return $true
             })]
-        [System.IO.FileInfo]$BrowserDriverDir,
+        [System.IO.DirectoryInfo]$BrowserDriverDir,
 
         [Parameter(Mandatory)]
         [ValidateSet('Chrome', 'Edge')]
@@ -75,9 +76,13 @@ Function Test-BrowserDriverVersion {
         $processName = $(If ($Browser -eq 'Chrome') { 'chromedriver' } ElseIf ($Browser -eq 'Edge') { 'msedgedriver' })
         #endregion Initialize variables
 
-        $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-        If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+        $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
+        If ($Browser -eq 'Edge') {
+            $message = ("{0}: As of 1 Feb 2024, this function no longer supports Edge. It can again, but needs to be tested and I do not have time to do that right now." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+
+            Return 1
+        }
         #region Test browser/driver version match
         If ($Browser -eq 'Chrome') {
             If (Test-Path -Path "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe") {
@@ -87,8 +92,7 @@ Function Test-BrowserDriverVersion {
                 $browserExePath = "C:\Program Files\Google\Chrome\Application\chrome.exe"
                 $architecture = 'win64'
             } Else {
-                $message = ("{0}: Google Chrome not installed. {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-                If ($LogPath) { Write-Error $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Error $message; }
+                $message = ("{0}: Google Chrome not installed. {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Error -Message $message }
             }
         } ElseIf ($Browser -eq 'Edge') {
             If (Test-Path -Path "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe") {
@@ -96,13 +100,11 @@ Function Test-BrowserDriverVersion {
             } ElseIf (Test-Path -Path "C:\Program Files\Microsoft\Edge\Application\msedge.exe") {
                 $browserExePath = "C:\Program Files\Microsoft\Edge\Application\msedge.exe"
             } Else {
-                $message = ("{0}: Microsoft Edge not installed. {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-                If ($LogPath) { Write-Error $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Error $message; }
+                $message = ("{0}: Microsoft Edge not installed. {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Error -Message $message }
             }
         }
 
-        $message = ("{0}: {1} is installed at: {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $Browser, $browserExePath)
-        If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+        $message = ("{0}: {1} is installed at: {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $Browser, $browserExePath); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
         $driverFileLocation = $(Join-Path $BrowserDriverDir $driverName)
 
@@ -110,67 +112,49 @@ Function Test-BrowserDriverVersion {
         $browserMajorVersion = $browserVersion.split(".")[0]
 
         If (-NOT($browserMajorVersion -gt 0)) {
-            $message = ("{0}: {1} not installed. {2} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $Browser, $MyInvocation.MyCommand)
-            If ($LogPath) { Write-Error $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Error $message; }
+            $message = ("{0}: {1} not installed. {2} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $Browser, $MyInvocation.MyCommand); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Error -Message $message }
 
             Return 1
         }
 
         If (Test-Path -Path $driverFileLocation -ErrorAction SilentlyContinue) {
-            $message = ("{0}: Getting the version of {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName)
-            If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+            $message = ("{0}: Getting the version of {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
             $driverFileVersion = (& $driverFileLocation --version)
             $driverFileVersionHasMatch = $driverFileVersion -match $browserVersionRegex
 
             If (-NOT $driverFileVersionHasMatch) {
-                $message = ("{0}: No {1} version identified. To prevent errors, {2} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $MyInvocation.MyCommand)
-                If ($LogPath) { Write-Error $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Error $message; }
+                $message = ("{0}: No {1} version identified. To prevent errors, {2} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $MyInvocation.MyCommand); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Error -Message $message }
 
                 Return 1
             } Else {
                 $driverCurrentVersion = $matches[1]
 
-                $message = ("{0}: The installed version of the browser driver is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverCurrentVersion)
-                If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+                $message = ("{0}: The installed version of the browser driver is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverCurrentVersion); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
             }
         } Else {
-            $message = ("{0}: {1} not found. {2} will attempt to download it." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $MyInvocation.MyCommand)
-            If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+            $message = ("{0}: {1} not found. {2} will attempt to download it." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $MyInvocation.MyCommand); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
             $driverCurrentVersion = '' # Need this here, to compare versions later.
         }
         #endregion Test browser/driver version match
 
         #region Id browser driver URL
-        $message = ("{0}: Identifying the latest available version of the browser driver." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-        If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+        $message = ("{0}: Identifying the latest available version of the browser driver." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
         $driverExpectedVersion = $(If ($Browser -eq 'Chrome') { $browserVersion.split(".")[0..2] -join "." } ElseIf ($Browser -eq 'Edge') { $browserVersion.split(".")[0..3] -join "." })
 
         If ($Browser -eq 'Chrome') {
             If ($browserMajorVersion -ge 115) {
-                # The driver download page changed after version 115.
-                $html = (Invoke-WebRequest -Uri 'https://googlechromelabs.github.io/chrome-for-testing/#stable' -UseBasicParsing).Content
-                $regexPattern = "<code>chromedriver</code><th><code>$architecture</code><td><code>(.*?)</code><td><code>200</code>"
-                $match = [regex]::Match($html, $regexPattern)
+                $availableVersions = (Invoke-WebRequest -UseBasicParsing -Uri 'https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json').Content | ConvertFrom-Json
 
-                If ($match.Success) {
-                    $driverZipLink = $match.Groups[1].Value
-                    $regexPattern = '/(\d+\.\d+\.\d+\.\d+)/'
-                    $match = [regex]::Match($driverZipLink, $regexPattern)
+                $downloadObject = $availableVersions.versions | Where-Object { ($_.version -like "$($driverExpectedVersion)*") -and ($_.downloads.chromedriver) } | Sort-Object -Property { [version]$_.version } | Select-Object -Last 1
 
-                    If ($match.Success) {
-                        $driverLatestVersion = $match.Groups[1].Value
-                    } Else {
-                        $message = ("{0}: Unexpected condition. To prevent errors, {2} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-                        If ($LogPath) { Write-Error $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Error $message; }
-
-                        Return 1
-                    }
-                } Else {
-                    $message = ("{0}: No URL found, from which to download the updated driver. To prevent errors, {2} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-                    If ($LogPath) { Write-Error $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Error $message; }
+                If ($downloadObject) {
+                    $message = ("{0}: Closest available version for download is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $downloadObject.version); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+                    $driverLatestVersion = $downloadObject.version
+                } else {
+                    $message = ("{0}: No URL found, from which to download the updated driver. To prevent errors, {2} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Error -Message $message }
 
                     Return 1
                 }
@@ -188,14 +172,20 @@ Function Test-BrowserDriverVersion {
             }
         }
 
-        $message = ("{0}: The latest browser driver version is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverLatestVersion)
-        If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+        $message = ("{0}: The desired version is: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverLatestVersion); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
         #endregion Id browser driver URL
 
         #region Download browser driver
+        If ($downloadObject) {
+            $message = ("{0}: Attempting to download latest driver release for {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverExpectedVersion); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+
+            If ($Browser -eq "Chrome") {
+                $driverZipLink = ($downloadObject.downloads.chromedriver | Where-Object { $_.platform -EQ $architecture }).url
+            }
+        }
+
         If ($driverCurrentVersion -ne $driverLatestVersion) {
-            $message = ("{0}: {1} does not match the installed version of {2}, attempting to download the correct driver file." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $Browser)
-            If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+            $message = ("{0}: {1} does not match the installed version of {2}, attempting to download the correct driver file." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $Browser); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
             If ($Browser -eq 'Chrome') {
                 If ($browserMajorVersion -ge 115) {
@@ -204,29 +194,23 @@ Function Test-BrowserDriverVersion {
             } ElseIf ($Browser -eq 'Edge') {
                 $driverZipLink = ("https://msedgedriver.azureedge.net/{0}/edgedriver_$architecture.zip" -f $driverLatestVersion)
             }
+        } Else {
+            $message = ("{0}: {1} is up-to-date." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
-            $message = ("{0}: Attempting to download from {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverZipLink)
-            If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+            Return 0
+        }
+
+        If ($driverZipLink) {
+            $message = ("{0}: Attempting to download from {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverZipLink); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
             Try {
                 If (Get-Process -Name $processName -ErrorAction SilentlyContinue) {
-                    $message = ("{0}: Attempting to stop {1} before extracting the replacement." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $processName)
-                    If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+                    $message = ("{0}: Attempting to stop {1} before extracting the replacement." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $processName); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
                     Try {
                         Get-Process -Name $processName | Stop-Process -Force
                     } Catch {
-                        $message = ("{0}: Unexpected error stopping {1}. Error: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $processName, $_.Exception.Message)
-                        If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
-
-                        Return 1
-                    }
-
-                    Try {
-                        Remove-Item -Path "$($BrowserDriverDir.FullName)\$driverName" -Force
-                    } Catch {
-                        $message = ("{0}: Unexpected error removing the old {1}. Error: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $_.Exception.Message)
-                        If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+                        $message = ("{0}: Unexpected error stopping {1}. Error: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $processName, $_.Exception.Message); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
                         Return 1
                     }
@@ -234,53 +218,53 @@ Function Test-BrowserDriverVersion {
 
                 (New-Object System.Net.WebClient).DownloadFile($driverZipLink, ("$(($BrowserDriverDir.FullName).TrimEnd('\'))\{0}driver_{1}.zip" -f $browser, $date))
             } Catch {
-                $message = ("{0}: Unexpected error downloading the file. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
-                If ($LogPath) { Write-Error $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Error $message; }
+                $message = ("{0}: Unexpected error downloading the file. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Error -Message $message }
 
                 Return 1
             }
-        } Else {
-            $message = ("{0}: {1} is up-to-date." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName)
-            If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
-
-            Return 0
         }
         #endregion Download browser driver
 
         #region Extract browser driver
         $message = ("{0}: Attempting to extract {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName)
-        If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+        If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+
+        Try {
+            # Get the name of the directory inside the .zip file, so we can later search it for the driver.exe file.
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $zip = [System.IO.Compression.ZipFile]::OpenRead(("$(($BrowserDriverDir.FullName).TrimEnd('\'))\{0}driver_{1}.zip" -f $browser, $date))
+            $extractedFolderName = ($zip.Entries[0].FullName -split '/')[0]
+            $zip.Dispose()
+        } Catch {
+            $message = ("{0}: Unexpected error reading the content of the .zip file. Error: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $BrowserDriverDir.FullName, $_.Exception.Message); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Error -Message $message }
+
+            Return 1
+        }
 
         Try {
             Expand-Archive -Path ("$(($BrowserDriverDir.FullName).TrimEnd('\'))\{0}driver_{1}.zip" -f $browser, $date) -DestinationPath $BrowserDriverDir.FullName -Force -ErrorAction Stop
             Remove-Item -Path ("$(($BrowserDriverDir.FullName).TrimEnd('\'))\{0}driver_{1}.zip" -f $browser, $date) -Force -ErrorAction Continue
 
-            If (-NOT (Test-Path -Path "$($BrowserDriverDir.FullName)\$driverName")) {
-                Try {
-                    Get-ChildItem -Path $BrowserDriverDir.FullName -Recurse -Include $driverName | Move-Item -Destination $BrowserDriverDir -ErrorAction Stop
-                } Catch {
-                    $message = ("{0}: Unexpected error searching for and/or moving {1} to {2}. Error: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $BrowserDriverDir.FullName, $_.Exception.Message)
-                    If ($LogPath) { Write-Error $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Error $message; }
+            Try {
+                Get-ChildItem -Path "$($BrowserDriverDir.FullName)$extractedFolderName" -Recurse -Include $driverName | Move-Item -Destination $BrowserDriverDir -ErrorAction Stop -Force
+            } Catch {
+                $message = ("{0}: Unexpected error searching for and/or moving {1} to {2}. Error: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $BrowserDriverDir.FullName, $_.Exception.Message); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Error -Message $message }
 
-                    Return 1
-                }
+                Return 1
             }
 
-            $message = ("{0}: {1} updated to version {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, (& $driverFileLocation --version))
-            If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+            $message = ("{0}: {1} updated to version {2}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, (& $driverFileLocation --version)); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
             Return 0
         } Catch {
-            $message = ("{0}: Unexpected error extracting {1}. Error: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $_.Exception.Message)
-            If ($LogPath) { Write-Error $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Error $message; }
+            $message = ("{0}: Unexpected error extracting {1}. Error: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $_.Exception.Message); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Error -Message $message }
 
             Return 1
         }
         #endregion Extract browser driver
     } Catch {
         $message = ("{0}: Unexpected error in {1}. The error occurred at line {2}, the command was `"{3}`", and the specific error is: {4}" -f `
-            ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, $_.InvocationInfo.ScriptLineNumber, $_.InvocationInfo.MyCommand.Name, $_.Exception.Message)
-        If ($LogPath) { Write-Host $message; $message | Out-File -FilePath $logFile -Append } ElseIf ($EventLogSource) { <#Not supporting this right now, maybe later.#> } Else { Write-Host $message; }
+            ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, $_.InvocationInfo.ScriptLineNumber, $_.InvocationInfo.MyCommand.Name, $_.Exception.Message); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
         Return 1
     }
@@ -311,10 +295,25 @@ $logFile = "$logDirPath\datasource-SuccessWareASP_Login_Availability-collection-
 
 $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
 Write-Host $message; $message | Out-File -FilePath $logFile
+
+#region PowerShell module
+$message = ("{0}: Install/import Selenium PowerShell module." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); Write-Host $message; $message | Out-File -FilePath $logFile -Append
+Try {
+    If (-NOT (Get-Module -Name Selenium -ListAvailable)) {
+        Install-Module -Name Selenium -Force -AllowClobber
+    }
+    Import-Module Selenium
+} Catch {
+    $message = ("{0}: Unexpected error installing/importing Selenium module. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
+    Write-Host $message; $message | Out-File -FilePath $logFile -Append
+
+    Exit 1
+}
+#endregion PowerShell module
 #endregion Setup
 
 #region Main
-$result = Test-BrowserDriverVersion -BrowserDriverDir $seleniumPath -Browser Chrome
+$result = Test-BrowserDriverVersion -BrowserDriverDir $seleniumPath -Browser Chrome -Verbose
 
 If ($result -eq 1) {
     $message = ("{0}: Unable to validate chromedriver.exe version. To prevent errors, {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
@@ -328,12 +327,13 @@ Write-Host $message; $message | Out-File -FilePath $logFile -Append
 
 Try {
     # Invoke Selenium into our script!
-    $env:PATH += ";$seleniumPath" # Adds the path for ChromeDriver.exe to the environmental variable 
-    Add-Type -Path "$seleniumPath\WebDriver.dll" # Adding Selenium's .NET assembly (dll) to access it's classes in this PowerShell session
+    $env:PATH += ";$seleniumPath" # Adds the path for ChromeDriver.exe to the environmental variable
+
     $chromeOptions = New-Object OpenQA.Selenium.Chrome.ChromeOptions
-    $chromeOptions.AddArgument("--headless")
     $chromeOptions.AddArgument("--disable-gpu")
-    $chromedriver = New-Object OpenQA.Selenium.Chrome.ChromeDriver($chromeOptions) # Creates an instance of this class to control Selenium and stores it in an easy to handle variable
+    #$chromeOptions.AddArgument("--headless")
+    $chromeOptions.AddArgument("C:\IT\selenium\")
+    $chromedriver = New-Object OpenQA.Selenium.Chrome.ChromeDriver($seleniumPath, $chromeOptions) # Creates an instance of this class to control Selenium and stores it in an easy to handle variable
 }
 Catch {
     $message = ("{0}: Unexpected error starting Chrome. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
