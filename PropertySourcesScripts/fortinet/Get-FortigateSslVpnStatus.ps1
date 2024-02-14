@@ -12,6 +12,7 @@
         V2023.06.23.4
         V2023.06.23.5
         V2023.06.23.6
+        V2024.02.08.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/PropertySourcesScripts/fortinet
     .EXAMPLE
@@ -48,6 +49,13 @@ Try {
     If (($vdoms) -and ($vdoms -ne 'disabled')) {
         If ($vdoms -match ",") { $vdoms = $vdoms.Split(',') } Else { [array]$vdoms = $vdoms }
     }
+
+    $port = "##ssh.port##"
+    If ($port -as [int]) {
+        # No change, use the value from LM.
+    } Else {
+        $port = 22
+    }
     #endregion Initialize variables
 
     #region Logging
@@ -71,7 +79,7 @@ Try {
     $message | Out-File -FilePath $logFile -Append
 
     Try {
-        $session = New-SSHSession -ComputerName $computerName -Credential $credential -ConnectionTimeout 120 -ErrorAction Stop -AcceptKey
+        $session = New-SSHSession -ComputerName $computerName -Credential $credential -Port $port -ConnectionTimeout 120 -ErrorAction Stop -AcceptKey
     } Catch {
         $message = ("{0}: Unexpected error establishing an SSH session to {1}. The error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName, $_.Exception.Message)
         $message | Out-File -FilePath $logFile -Append
