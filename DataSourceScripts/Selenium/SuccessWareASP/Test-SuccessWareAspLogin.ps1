@@ -12,6 +12,7 @@
         V2023.10.06.0
         V2023.10.06.1
         V2024.02.05.0
+        V2024.02.09.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Selenium/SuccessWareASP
 #>
@@ -246,7 +247,7 @@ Function Test-BrowserDriverVersion {
             Remove-Item -Path ("$(($BrowserDriverDir.FullName).TrimEnd('\'))\{0}driver_{1}.zip" -f $browser, $date) -Force -ErrorAction Continue
 
             Try {
-                Get-ChildItem -Path "$($BrowserDriverDir.FullName)$extractedFolderName" -Recurse -Include $driverName | Move-Item -Destination $BrowserDriverDir -ErrorAction Stop -Force
+                Get-ChildItem -Path "$(($BrowserDriverDir.FullName).TrimEnd('\'))\$extractedFolderName" -Recurse -Include $driverName | Move-Item -Destination $BrowserDriverDir -ErrorAction Stop -Force
             } Catch {
                 $message = ("{0}: Unexpected error searching for and/or moving {1} to {2}. Error: {3}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $driverName, $BrowserDriverDir.FullName, $_.Exception.Message); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Error -Message $message }
 
