@@ -16,6 +16,7 @@
         V2023.03.28.0
         V2023.04.01.0
         V2023.09.05.0
+        V2024.04.12.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/blob/master/Reports/ThresholdReport-Script.ps1
     .PARAMETER AccessId
@@ -79,6 +80,7 @@
 
         In this example, the script gets all devices matching the AppliesTo of DataSource 24, and generates a threshold report for them. Limited logging is written to the console host only. Output is sent only to the host.
 #>
+#Requires -Modules LogicMonitor
 [CmdletBinding(DefaultParameterSetName = 'AllDevices')]
 Param (
     [Parameter(Mandatory)]
@@ -130,7 +132,7 @@ Param (
 #region Setup
 #region Initialized variables
 $reportList = [System.Collections.Generic.List[PSObject]]::new()
-$devices = [System.Collections.Generic.List[PSObject]]::new()
+$reportDevices = [System.Collections.Generic.List[PSObject]]::new()
 $searchedGroups = [System.Collections.Generic.List[PSObject]]::new()
 $groupsToCheckForSubGroups = [System.Collections.Generic.List[PSObject]]::new()
 $progressCounter = 0
@@ -175,17 +177,13 @@ If ($PSBoundParameters['Verbose'] -or $VerbosePreference -eq 'Continue') {
 }
 #endregion Logging splatting
 
-$message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-Out-PsLogging @loggingParams -MessageType First -Message $message
+$message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand); Out-PsLogging @loggingParams -MessageType First -Message $message
 
 #region Import PowerShell modules
 Try {
     Import-Module -Name LogicMonitor -ErrorAction Stop
 } Catch {
-    $timer.Stop()
-
-    $message = ("{0}: Error importing the LogicMonitor module. To prevent errors, {1} will exit. The specific error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, $_.Exception.Message)
-    Out-PsLogging @loggingParams -MessageType Error -Message $message
+    $message = ("{0}: Error importing the LogicMonitor module. To prevent errors, {1} will exit. The specific error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, $_.Exception.Message); Out-PsLogging @loggingParams -MessageType Error -Message $message
 
     Exit 1
 }
@@ -202,11 +200,9 @@ Switch ($PsCmdlet.ParameterSetName) {
     }
     { $_ -in "GroupFilter", "IdFilter", "GroupStringFilter" } {
         If ($GroupId.Count -eq 1) {
-            $message = ("{0}: Proceeding with GroupId: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $GroupId)
-            If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+            $message = ("{0}: Proceeding with GroupId: {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $GroupId); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
         } ElseIf ($GroupId.Count -gt 1) {
-            $message = ("{0}: Found {1} group IDs, selecting one and adding the other to the list of groups to check." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $GroupId.Count)
-            If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+            $message = ("{0}: Found {1} group IDs, selecting one and adding the other to the list of groups to check." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $GroupId.Count); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
             Foreach ($id in $GroupId) {
                 $groupsToCheckForSubGroups.Add($id)
@@ -214,19 +210,17 @@ Switch ($PsCmdlet.ParameterSetName) {
 
             $GroupId = $groupProps[0]
         } Else {
-            $message = ("{0}: Unable to locate the desired group(s). {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-            Out-PsLogging @loggingParams -MessageType Error -Message $message
+            $message = ("{0}: Unable to locate the desired group(s). {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand); Out-PsLogging @loggingParams -MessageType Error -Message $message
 
             Exit 1
         }
 
         If ($Recursive) {
-            $message = ("{0}: Attempting to get all sub-groups of group {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $GroupId)
-            If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+            $message = ("{0}: Attempting to get all sub-groups of group {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $GroupId); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
             Do {
                 $groupProps = (Get-LogicMonitorDeviceGroup -Id $GroupId @commandParams @loggingParams)
-                $searchedGroups.Add($GroupId)
+                $searchedGroups.Add($groupProps)
 
                 If ($groupProps.subGroups.id.Count -gt 0) {
                     Foreach ($group in $groupProps.subGroups.id) {
@@ -246,49 +240,47 @@ Switch ($PsCmdlet.ParameterSetName) {
             }
         }
 
+        $i
         Foreach ($group in $searchedGroups) {
+            $i++
             $groupDevices = $null
 
-            $message = ("{0}: Attempting to get devices from group {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $group)
-            If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+            $message = ("{0}: Attempting to get devices from group {1}. This is group {2} of {3}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $group, $i, $searchedGroups.id.Count); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
-            $groupDevices = Get-LogicMonitorDevice -AccessId $accessid -AccessKey $accesskey -AccountName $AccountName -Filter "filter=hostGroupIds~$($group)" @loggingParams
+            $groupDevices = Get-LogicMonitorDevice @commandParams @loggingParams -Filter "filter=systemProperties.value:`"$($group.fullPath)`""
+
             Foreach ($device in $groupDevices) {
-                $devices.Add($device)
+                $reportDevices.Add($device)
             }
         }
     }
     "AllDevices" {
-        $devices = Get-LogicMonitorDevice @commandParams @loggingParams
+        $reportDevices = Get-LogicMonitorDevice @commandParams @loggingParams
     }
     "DeviceStringFilter" {
-        $devices = Get-LogicMonitorDevice -Filter $DeviceFilter @commandParams @loggingParams
+        $reportDevices = Get-LogicMonitorDevice -Filter $DeviceFilter @commandParams @loggingParams
     }
     "DataSourceFilter" {
-        $devices = Get-LogicMonitorDataSourceDevice -Id 24 @commandParams @loggingParams
+        $reportDevices = Get-LogicMonitorDataSourceDevice -Id 24 @commandParams @loggingParams
     }
 }
 
-If (($devices -eq "Error") -or ($devices.id.Count -lt 1)) {
-    $message = ("{0}: Too few devices retrieved. To prevent errors, {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-    If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
+If (($reportDevices -eq "Error") -or ($reportDevices.id.Count -lt 1)) {
+    $message = ("{0}: Too few devices retrieved. To prevent errors, {1} will exit." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand); If ($EventLogSource -and (-NOT $LogPath)) { Out-PsLogging -EventLogSource $EventLogSource -MessageType Error -Message $message } ElseIf ($LogPath -and (-NOT $EventLogSource)) { Out-PsLogging -LogPath $LogPath -MessageType Error -Message $message } Else { Out-PsLogging -ScreenOnly -MessageType Error -Message $message }
 
     Exit 1
 }
 
-$message = ("{0}: Retrieved a total of {1} devices." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $devices.id.Count)
-If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+$message = ("{0}: Retrieved a total of {1} devices." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $reportDevices.id.Count); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 #endregion Get devices
 
 #region Create report
-Foreach ($device in $devices) {
+Foreach ($device in $reportDevices) {
     $progressCounter++
 
-    $message = ("{0}: ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+    $message = ("{0}: ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
-    $message = ("{0}: Working on {1}. This is device {2} of {3}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $device.displayName, $progressCounter, $devices.count)
-    If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+    $message = ("{0}: Working on {1}. This is device {2} of {3}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $device.displayName, $progressCounter, $reportDevices.count); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
     $resourcePath = "/device/devices/$($device.id)/instances"
     $url = ("https://$AccountName.logicmonitor.com/santaba/rest$resourcePath{0}" -f $(If ($PsCmdlet.ParameterSetName -eq 'DataSourceFilter') { "?filter=dataSourceId:$DataSourceId" }))
@@ -314,8 +306,7 @@ Foreach ($device in $devices) {
     $instances = Invoke-RestMethod -Uri $url -Method $httpVerb -Header $headers -ErrorAction Stop
 
     If ($instances.total -lt 1) {
-        $message = ("{0}: No instances found under {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $device.displayName)
-        If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+        $message = ("{0}: No instances found under {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $device.displayName); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
         Continue
     }
@@ -343,8 +334,7 @@ Foreach ($device in $devices) {
             "X-Version"     = 3
         }
 
-        $message = ("{0}: Getting DataSource settings." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-        If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+        $message = ("{0}: Getting DataSource settings." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
         $datasource = Invoke-RestMethod -Uri $url -Method $httpVerb -Header $headers -ErrorAction Stop
 
@@ -369,20 +359,17 @@ Foreach ($device in $devices) {
             "X-Version"     = 3
         }
 
-        $message = ("{0}: Getting datapoints." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-        If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+        $message = ("{0}: Getting datapoints." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
         $datapoints = Invoke-RestMethod -Uri $url -Method $httpVerb -Header $headers -ErrorAction Stop
 
         If ($datapoints.Total -lt 1) {
-            $message = ("{0}: No datapoints retrieved." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-            If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+            $message = ("{0}: No datapoints retrieved." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
             Continue
         }
         Else {
-            $message = ("{0}: Adding datapoints to the report list." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-            If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+            $message = ("{0}: Adding datapoints to the report list." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
         }
 
         Foreach ($datapoint in $datapoints.items) {
@@ -426,14 +413,12 @@ If ($OutputPath) {
     Try {
         $reportList | Export-Csv -Path "$($OutputPath.FullName.TrimEnd('\'))\$fileName" -ErrorAction Stop -NoTypeInformation
     } Catch {
-        $message = ("{0}: Unexpected error sending output to {1}. The specific error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $OutputPath, $_.Exception.Message)
-        Out-PsLogging @loggingParams -MessageType Error -Message $message
+        $message = ("{0}: Unexpected error sending output to {1}. The specific error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $OutputPath, $_.Exception.Message); Out-PsLogging @loggingParams -MessageType Error -Message $message
 
         Exit 1
     }
 
-    $message = ("{0}: Sent output to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), "$($OutputPath.FullName.TrimEnd('\'))\$fileName")
-    If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
+    $message = ("{0}: Sent output to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), "$($OutputPath.FullName.TrimEnd('\'))\$fileName"); If ($loggingParams.Verbose) { Out-PsLogging @loggingParams -MessageType Verbose -Message $message }
 
     Exit 0
 } Else {
