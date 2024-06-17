@@ -32,6 +32,8 @@ Try {
     Remove-Variable -Name pw -Force -ErrorAction SilentlyContinue
     #endregion Creds
 
+    $debug = $false
+    $instance = "##wildvalue##"
     $computerName = '##hostname##'
     $exitCode = 0
     $port = "##ssh.port##"
@@ -48,7 +50,8 @@ Try {
 
     Switch ($deviceType) {
         "fortigate" {
-            $discoCommand = ''
+            $discoCommand = "get vpn certificate local details $instance"
+            $dateRegex = 'Valid to:\s+(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})'
         }
     }
     #endregion Initialize variables
@@ -66,99 +69,87 @@ Try {
 
     $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand); $message | Out-File -FilePath $logFile
     #endregion Setup
+
+    #region Main
+    #region Initial connection
+    $message = ("{0}: Attempting to establish an SSH session to {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName); $message | Out-File -FilePath $logFile -Append
+
+    Try {
+        $session = New-SSHSession -ComputerName $computerName -Credential $credential -Port $port -ConnectionTimeout 120 -ErrorAction Stop -Force -WarningAction SilentlyContinue
+    } Catch {
+        If ($_.Exception.Message -match 'Key exchange negotiation failed') {
+            $message = ("{0}: SSH failed due to key exchange negotiation failure." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); $message | Out-File -FilePath $logFile -Append
+        } Else {
+            $message = ("{0}: Unexpected error establishing an SSH session to {1}. The error is: {2}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName, $_.Exception.Message); $message | Out-File -FilePath $logFile -Append
+
+            Exit 1
+        }
+    }
+
+    If ($session) {
+        $message = ("{0}: SSH session established." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); $message | Out-File -FilePath $logFile -Append
+    } Else {
+        $message = ("{0}: Unable to establish the SSH session." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); $message | Out-File -FilePath $logFile -Append
+    }
+    #endregion Initial connection
+
+    #region Create SSHShellStream
+    $message = ("{0}: Creating SSH shell stream." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); $message | Out-File -FilePath $logFile -Append
+
+    $stream = New-SSHShellStream -Index 0
+    #endregion Create SSHShellStream
+
+    #region Get expiration
+    $message = ("{0}: Sending '{1}'." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $discoCommand); $message | Out-File -FilePath $logFile -Append
+
+    $response = Invoke-SSHStreamShellCommand -ShellStream $stream -Command $discoCommand
+
+    $message = ("{0}: The value in `$response (if present) is: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), ($response | Out-String).Trim()); $message | Out-File -FilePath $logFile -Append
+    #endregion Get expiration
+
+    #region Parse response
+    If ($response) {
+        Switch ($deviceType) {
+            "fortigate" {
+                $message = ("{0}: Parsing data for Fortigate device." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); $message | Out-File -FilePath $logFile -Append
+
+                $match = [regex]::Match($response, $dateRegex)
+
+                If ($match.Success) {
+                    $validToDateString = $match.Groups[1].Value
+                    $dateFormat = "yyyy-MM-dd HH:mm:ss"
+                    $validToDate = [datetime]::ParseExact($validToDateString, $dateFormat, $null)
+                    $daysDifference = ($validToDate - $(Get-Date)).Days
+                } Else {
+                    $message = ("{0}: Unable to calculate the expiration data." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); $message | Out-File -FilePath $logFile -Append
+
+                    $exitCode = 1
+                }
+            }
+        }
+
+        $daysDifference = ($validToDate - $(Get-Date)).Days
+    } Else {
+        $exitCode = 1
+    }
+    #endregion Parse response
+    #endregion Main
+
+    #region Output
+    $message = ("{0}: Certificate, `"{1}`", expires in {2} days." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $instance, $daysDifference); $message | Out-File -FilePath $logFile -Append
+
+    Write-Host ("DaysUntilExpiration={0}" -f $daysDifference)
+    #endregion Output
+
+    $message = ("{0}: {1} is complete." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand); $message | Out-File -FilePath $logFile -Append
+
+    Exit $exitCode
 } Catch {
+    $null = $session | Remove-SSHSession -ErrorAction SilentlyContinue
 
-}
-
-#region Setup
-#region Initialize variables
-$autoExpirationList = '##auto.genericexpirationdata##'
-$manualExpirationList = '##manual.genericexpirationdata##'
-$computerName = '##hostname##'
-$today = Get-Date
-$i = 0
-
-If (Test-Path -Path "${env:ProgramFiles}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
-    $logDirPath = "${env:ProgramFiles}\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
-} ElseIf (Test-Path -Path "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" -ErrorAction SilentlyContinue) {
-    $logDirPath = "${env:ProgramFiles(x86)}\LogicMonitor\Agent\Logs" # Directory, into which the log file will be written.
-} Else {
-    $logDirPath = "$([System.Environment]::SystemDirectory)" # Directory, into which the log file will be written.
-}
-$logFile = "$logDirPath\datasource_Get_Generic_Item_Expiration_Date_Collection-$computerName.log"
-#endregion Initialize variables
-#endregion Setup
-
-$message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-$message | Out-File -FilePath $logFile
-
-#region Parse LM property strings
-#region Generate array
-If (($autoExpirationList -match 'Expiration\=') -and -NOT($manualExpirationList -match 'Expiration\=')) {
-    $message = ("{0}: Found auto.genericexpirationdata populated." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    $message | Out-File -FilePath $logFile -Append
-
-    $discoveredExpirations = $autoExpirationList -split ','
-} ElseIf (-NOT($autoExpirationList -match 'Expiration\=') -and ($manualExpirationList -match 'Expiration\=')) {
-    $message = ("{0}: Found auto.genericexpirationdata populated." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    $message | Out-File -FilePath $logFile -Append
-
-    $discoveredExpirations = $manualExpirationList -split ','
-} ElseIf (-NOT($autoExpirationList -match 'Expiration\=') -and -NOT($manualExpirationList -match 'Expiration\=')) {
-    $message = ("{0}: No properly-formatted licenses detected. Verify that the property is formatted correctly (e.g. @{Name=Hardware; Expiration=Sun Dec 17 2023},@{Name=AV Engine; Expiration=Sun Dec 17 2023})." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    $message | Out-File -FilePath $logFile -Append
-
-    Exit 1
-} ElseIf (($autoExpirationList -match 'Expiration\=') -and ($manualExpirationList -match 'Expiration\=')) {
-    $message = ("{0}: Found both auto and manual.genericexpirationdata populated." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    $message | Out-File -FilePath $logFile -Append
-
-    $discoveredExpirations = $autoExpirationList -split ','
-    $discoveredExpirations += $manualExpirationList -split ','
-}
-#endregion Generate array
-#region Parse LM property strings
-
-#region Parse array
-If ($discoveredExpirations) {
-    $message = ("{0}: Converting string data to an array of objects." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    $message | Out-File -FilePath $logFile -Append
-
-    $expirationObjects = Foreach ($item in $discoveredExpirations) {
-        [pscustomObject][Management.Automation.Language.Parser]::ParseInput(
-            $item,
-            [ref] $null,
-            [ref] $null).
-        EndBlock.Statements[0].PipelineElements[0].Expression.SafeGetValue()
-    }
-}
-#endregion Parse array
-
-#region Calculate days remaining
-If ($expirationObjects) {
-    $message = ("{0}: Calculating days until expiration." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    $message | Out-File -FilePath $logFile -Append
-
-    Foreach ($item in $expirationObjects) {
-        $daysUntilExpiration = $null
-        $i++
-
-        $message = ("{0}: Parsing `"{1}`". This is license {2} of {3}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), ($item.Name -replace '\s+'), $i, $expirationObjects.Name.Count)
-        $message | Out-File -FilePath $logFile -Append
-
-        $daysUntilExpiration = (New-TimeSpan -Start $today -End $item.Expiration).Days
-
-        $message = ("{0}: {1} expires in {2} days." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), ($item.Name -replace '\s+'), $daysUntilExpiration)
-        $message | Out-File -FilePath $logFile -Append
-
-        Write-Host ("{0}.DaysUntilExpiration={1}" -f ($item.Name -replace '\s+'), $daysUntilExpiration)
-    }
-
-    Exit 0
-} Else {
-    $message = ("{0}: No licenses retrieved." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    $message | Out-File -FilePath $logFile -Append
+    $message = ("{0}: Unexpected error in {1}. The error occurred at line {2}, the command was `"{3}`", and the specific error is: {4}" -f `
+        ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand, $_.InvocationInfo.ScriptLineNumber, $_.InvocationInfo.MyCommand.Name, $_.Exception.Message)
+    $message | Out-File -FilePath $logFile
 
     Exit 1
 }
-#endregion Calculate days remaining
