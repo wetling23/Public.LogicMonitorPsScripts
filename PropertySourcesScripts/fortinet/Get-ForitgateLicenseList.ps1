@@ -9,6 +9,8 @@
         V2023.01.09.0
         V2023.08.15.0
         V2023.08.15.1
+        V2024.07.10.0
+        V2024.07.10.1
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/PropertySourceScripts/fortinet
 #>
@@ -51,14 +53,11 @@ Function Get-FortigateLicenseExpiration {
     $endOid = '.1.3.6.1.4.1.12356.101.4.6.3.1.2.1.3'
     $regex = 'OID\=.*Type\=OctetString\,\sValue\='
 
-    $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-    $message | Out-File -Append -FilePath $logFile
+    $message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand); $message | Out-File -Append -FilePath $logFile
 
-    $message = ("{0}: Operating in the {1} parameter set." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $PsCmdlet.ParameterSetName)
-    $message | Out-File -Append -FilePath $logFile
+    $message = ("{0}: Operating in the {1} parameter set." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $PsCmdlet.ParameterSetName); $message | Out-File -Append -FilePath $logFile
 
-    $message = ("{0}: Attempting SNMP walk." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $PsCmdlet.ParameterSetName)
-    $message | Out-File -Append -FilePath $logFile
+    $message = ("{0}: Attempting SNMP walk." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $PsCmdlet.ParameterSetName); $message | Out-File -Append -FilePath $logFile
 
     # Walk the OID to find out get the instances.
     Try {
@@ -72,15 +71,13 @@ Function Get-FortigateLicenseExpiration {
         }
     }
     Catch {
-        $message = ("{0}: Unexpected error running snmpwalk. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message)
-        $message | Out-File -Append -FilePath $logFile
+        $message = ("{0}: Unexpected error running snmpwalk. Error: {1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $_.Exception.Message); $message | Out-File -Append -FilePath $logFile
 
         Return 1
     }
 
     If (($snmpwalkResult -match 'type=octetstring') -and ($snmpwalkResult -match '(?:mon|tue|wed|thu|fri|sat|sun)')) {
-        $message = ("{0}: Retreived license information, attempting to parse." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-        $message | Out-File -Append -FilePath $logFile
+        $message = ("{0}: Retreived license information, attempting to parse." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); $message | Out-File -Append -FilePath $logFile
 
         $rawLicenses = ($snmpwalkResult -match $regex) -replace $regex
 
@@ -98,12 +95,10 @@ Function Get-FortigateLicenseExpiration {
             }
         }
 
-        $message = ("{0}: Parsed SNMP response into {1} licenses." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $parsedLicenses.Name.Count)
-        $message | Out-File -Append -FilePath $logFile
+        $message = ("{0}: Parsed SNMP response into {1} licenses." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $parsedLicenses.Name.Count); $message | Out-File -Append -FilePath $logFile
     }
     Else {
-        $message = ("{0}: Zero licenses were retreived." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $PsCmdlet.ParameterSetName)
-        $message | Out-File -Append -FilePath $logFile
+        $message = ("{0}: Zero licenses were retreived." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $PsCmdlet.ParameterSetName); $message | Out-File -Append -FilePath $logFile
 
         Return 0
     }
@@ -142,6 +137,8 @@ If ($snmpPriv -eq 'AES') { $snmpPriv = 'AES128' }
 
 Switch ($snmpAuthToken) {
     { ($snmpAuthToken.Length -gt 0) } {
+        If ($snmpPriv.Length -lt 2) { $snmpPriv = 'AES128' }
+        If ($snmpAuth.Length -lt 2) { $snmpAuth = 'SHA' }
         $commandParams = @{
             ComputerName  = $computerName
             SnmpVersion   = $snmpVersion
@@ -166,50 +163,42 @@ Switch ($snmpAuthToken) {
 }
 #endregion Setup
 
-$message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand)
-$message | Out-File -FilePath $logFile
+$message = ("{0}: Beginning {1}." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $MyInvocation.MyCommand); $message | Out-File -FilePath $logFile
 
 #region Main
 If ($firmwareVersionProp -match '\d+\.\d+\.\d+') {
-    $message = ("{0}: Parsing firmware version." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    $message | Out-File -FilePath $logFile -Append
+    $message = ("{0}: Parsing firmware version." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); $message | Out-File -FilePath $logFile -Append
 
     $firmwareVersion = $matches[0]
 
     If ([System.Version]$firmwareVersion -lt '6.4.2') {
-        $message = ("{0}: The device does not support license retrieval via SNMP. The minimum firmware version is 6.4.2 ({1} has version {2})." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName, $firmwareVersion)
-        $message | Out-File -FilePath $logFile -Append
+        $message = ("{0}: The device does not support license retrieval via SNMP. The minimum firmware version is 6.4.2 ({1} has version {2})." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $computerName, $firmwareVersion); $message | Out-File -FilePath $logFile -Append
 
         Exit 0
     } Else {
-        $message = ("{0}: The device has the required minimum firmware version." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-        $message | Out-File -FilePath $logFile -Append
+        $message = ("{0}: The device has the required minimum firmware version." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); $message | Out-File -FilePath $logFile -Append
     }
 }
 
 $discoveredLicenses = Get-FortigateLicenseExpiration @commandParams
 
 If ($discoveredLicenses -eq 1) {
-    $message = ("{0}: Error detected while identifying licenses." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    $message | Out-File -FilePath $logFile -Append
+    $message = ("{0}: Error detected while identifying licenses." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); $message | Out-File -FilePath $logFile -Append
 
     Exit 1
 } ElseIf ($discoveredLicenses -eq 0) {
-    $message = ("{0}: No licenses retrieved." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    $message | Out-File -FilePath $logFile -Append
+    $message = ("{0}: No licenses retrieved." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); $message | Out-File -FilePath $logFile -Append
 
     Exit 0
 } ElseIf ($discoveredLicenses.Name) {
     $string = [String]::Join(',', $discoveredLicenses)
-    $message = ("{0}: Returning list of installed licenses:`r`n{1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $string)
-    $message | Out-File -FilePath $logFile -Append
+    $message = ("{0}: Returning list of installed licenses:`r`n{1}" -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"), $string); $message | Out-File -FilePath $logFile -Append
 
     Write-Host ("genericexpirationdata={0}" -f $string)
 
     Exit 0
 } Else {
-    $message = ("{0}: Exiting in an unexpected state." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss"))
-    $message | Out-File -FilePath $logFile -Append
+    $message = ("{0}: Exiting in an unexpected state." -f ([datetime]::Now).ToString("yyyy-MM-dd`THH:mm:ss")); $message | Out-File -FilePath $logFile -Append
 
     Exit 1
 }
