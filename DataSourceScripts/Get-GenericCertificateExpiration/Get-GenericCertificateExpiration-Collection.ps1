@@ -4,6 +4,7 @@
     .NOTES
         Author: Mike Hashemi
         V2024.06.17.0
+        V2024.06.18.0
     .LINK
         https://github.com/wetling23/Public.LogicMonitorPsScripts/tree/master/DataSourceScripts/Get-GenericCertificateExpiration
 #>
@@ -44,7 +45,7 @@ Try {
     }
 
     $deviceType = "##custom.genericcertexpirationdata.deviceType##"
-    If (-NOT ($adCommand.Length -gt 1)) {
+    If ($adCommand.Length -le 1) {
         $deviceType = 'fortigate'
     }
 
